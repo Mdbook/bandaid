@@ -107,7 +107,7 @@ func GetConfigName(s string) string {
 		filename = strings.Join(strings.Split(s, "\\"), "/")
 	}
 	filename = strings.Join(strings.Split(filename, "/"), "._.")
-	return ".config/" + filename
+	return ".bandaid/" + filename
 }
 
 func (a *ServiceObject) InitBackup() {
@@ -127,8 +127,8 @@ func (a *ServiceObject) InitBackup() {
 }
 
 func InitConfigFolder() {
-	if FileExists(".config") {
-		Warnf("Detected .config folder. Load from config? [y/n]: ")
+	if FileExists(".bandaid") {
+		Warnf("Detected .bandaid folder. Load from backup? [y/n]: ")
 		reader := bufio.NewReader(os.Stdin)
 		rawAnswer, _ := reader.ReadString('\n')
 		answer := trim(rawAnswer)
@@ -139,7 +139,7 @@ func InitConfigFolder() {
 		}
 		return
 	}
-	err := os.Mkdir(".config", 0755)
+	err := os.Mkdir(".bandaid", 0755)
 	if err != nil {
 		Errorf("Could not create config directory\n")
 	}

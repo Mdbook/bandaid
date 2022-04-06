@@ -293,8 +293,8 @@ func FixICMP() {
 }
 
 func InitBackups() {
-	// os.Mkdir(".config", os.ModePerm)
-	// os.Mkdir(".config/backups", os.ModePerm)
+	// os.Mkdir(".bandaid", os.ModePerm)
+	// os.Mkdir(".bandaid/backups", os.ModePerm)
 	for i := range master.Services {
 		for _, name := range serviceNames {
 			master.Services[i].getAttr(name).InitBackup()
