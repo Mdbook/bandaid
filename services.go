@@ -47,6 +47,10 @@ func (a *Service) Init() bool {
 		a.Config,
 	}
 	for _, location := range a.locations {
+		if !FileExists(location.Path) {
+			Warnf("Filepath error while importing %s. Skipping...\n", a.Name)
+			return false
+		}
 		location.Checksum, err = location.GetSHA()
 	}
 	if err {
