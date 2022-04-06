@@ -276,8 +276,10 @@ func RunBandaid() {
 			}
 			serv := GetTail(service.Service.Path, "/")
 			if !CheckCtl(serv) {
+				fmt.Printf("Service %s has stopped. Restarting...\n", service.Name)
 				cmd := exec.Command("systemctl", "start", serv)
 				cmd.Run()
+				caret()
 			}
 		}
 		for _, file := range master.Files {
@@ -433,16 +435,22 @@ func CheckName(name string) bool {
 }
 
 func CheckCtl(service string) bool {
-	cmd := exec.Command("systemctl", "check", "vsftpd")
+	cmd := exec.Command("systemctl", "check", service)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			if outputEnabled {
-				Errorf("systemctl finished with non-zero: %v\n", exitErr)
+				if (exitErr.String()) == "3" {
+					Warnf("\nSystemctl status 3 for service %s\n", service)
+				} else {
+					Warnf("\nSystemctl finished with non-zero for service %s: %v\n", service, exitErr)
+				}
+				// caret()
 			}
 		} else {
 			if outputEnabled {
-				fmt.Printf("failed to run systemctl: %v", err)
+				Errorf("\nFailed to run systemctl: %v\n", err)
+				// caret()
 				upkeep = false
 			}
 			// os.Exit(1)
