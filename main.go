@@ -22,11 +22,7 @@ var serviceNames []string = []string{
 	"Config",
 }
 var colors Colors = InitColors()
-var delay time.Duration = 500
-var icmpDelay time.Duration = 10
-var outputEnabled bool = true
-var loadFromConfig bool = true
-var upkeep bool = true
+var config Config
 
 func main() {
 	// err := syscall.Setuid(0)
@@ -34,10 +30,12 @@ func main() {
 	// 	Errorf("Error: must be run as root\n")
 	// 	os.Exit(-1)
 	// }
+	HandleArgs()
 	CreateNil()
 	InitConfigFolder()
 	// TODO XOR the binary files
 	// TODO base26 the plaintext files
+	// TODO base64/26 encode all filepaths
 	master = InitConfig()
 	InitBackups()
 	fmt.Println()
@@ -47,6 +45,65 @@ func main() {
 	go FixICMP()
 	InputCommand()
 	// fmt.Println(testService.config.checksum, testService.binary.checksum, testService.service.checksum)
+}
+
+func HandleArgs() {
+	if len(os.Args) <= 1 {
+		return
+	}
+	var config Config = Config{
+		delay:          500,
+		icmpDelay:      10,
+		configFile:     "config.json",
+		backupLocation: ".bandaid",
+		outputEnabled:  true,
+		loadFromConfig: true,
+		upkeep:         true,
+		doBackup:       true,
+	}
+	for i, arg := range os.Args[1:] {
+		switch arg {
+		case "-h", "--help":
+			fmt.Printf(
+				colors.green + "Bandaid v1.2: Made by Michael Burke\n" + colors.reset +
+					"Usage: ./bandaid [args]\n" +
+					"\nCommands:\n" +
+					"-h | --help			Display help\n" +
+					"-n | --nobackup			Don't backup initial config\n" +
+					"-r | --norestore		Don't restore from backup\n" +
+					"-f | --configfile [file]	Path for the config.json file\n" +
+					"-b | --backup [folder]		Location of folder to store backups in\n" +
+					"-q | --quiet			Disable output\n" +
+					"-u | --upkeep			Disable upkeep of services\n" +
+					"-d | --delay [n]		Set interval to n\n" + //TODO add this
+					"-i | --icmpdelay [n]		Set ICMP delay to n\n" + //TODO add this
+					"\n",
+			)
+			os.Exit(0)
+		case "-b", "--nobackup":
+			config.doBackup = false
+		case "-r", "--norestore":
+			config.loadFromConfig = false
+		case "-q", "--quiet":
+			config.outputEnabled = false
+		case "-u", "--upkeep":
+			config.upkeep = false
+		case "-f", "--configfile":
+			if i <= len(os.Args)-2 {
+				config.configFile = os.Args[i+2]
+			} else {
+				Errorf("Error: must provide a config file location to use with --configfile\n")
+				os.Exit(-1)
+			}
+		case "-d", "--backup":
+			if i <= len(os.Args)-2 {
+				config.backupLocation = os.Args[i+2]
+			} else {
+				Errorf("Error: must provide a config file location to use with --configfile\n")
+				os.Exit(-1)
+			}
+		}
+	}
 }
 
 func InputCommand() {
@@ -72,12 +129,13 @@ func InputCommand() {
 					"quiet\n" +
 					"verbose\n" +
 					"upkeep [on|off]\n" +
-					"help\n",
+					"help\n" +
+					"exit\n",
 			)
 		case "quiet":
-			outputEnabled = false
+			config.outputEnabled = false
 		case "verbose":
-			outputEnabled = true
+			config.outputEnabled = true
 		case "list":
 			Warnf("---Services---\n")
 			for _, service := range master.Services {
@@ -99,13 +157,13 @@ func InputCommand() {
 				break
 			}
 			if args[1] == "default" {
-				delay = 500
+				config.delay = 500
 			}
 			i, err := strconv.Atoi(args[1])
 			if err != nil {
 				Errorf("Error: Invalid argument\n")
 			} else {
-				delay = time.Duration(i)
+				config.delay = time.Duration(i)
 				fmt.Printf("Interval set to %d.\n", i)
 			}
 		case "icmpInterval":
@@ -114,13 +172,13 @@ func InputCommand() {
 				break
 			}
 			if args[1] == "default" {
-				delay = 10
+				config.delay = 10
 			}
 			i, err := strconv.Atoi(args[1])
 			if err != nil {
 				Errorf("Error: Invalid argument\n")
 			} else {
-				icmpDelay = time.Duration(i)
+				config.icmpDelay = time.Duration(i)
 				fmt.Printf("ICMP Interval set to %d.\n", i)
 			}
 		case "addfile":
@@ -229,9 +287,9 @@ func InputCommand() {
 			}
 			switch args[2] {
 			case "on":
-				upkeep = true
+				config.upkeep = true
 			case "off":
-				upkeep = false
+				config.upkeep = false
 			default:
 				Errorf("Error: invalid argument")
 				break
@@ -258,46 +316,52 @@ func PrintChecksums() {
 
 func RunBandaid() {
 	for {
+		change := false
 		for _, service := range master.Services {
 			for _, name := range serviceNames {
 				if !service.getAttr(name).CheckSHA() {
-					if outputEnabled {
+					if config.outputEnabled {
 						fmt.Printf("\nError on checksum for %s %s. Rewriting...\n", service.Name, strings.ToLower(name))
 						if service.getAttr(name).writeBackup() {
 							fmt.Println("Backup succeeded.")
 						} else {
 							fmt.Println("Backup failed.")
 						}
-						caret()
 					} else {
 						service.getAttr(name).writeBackup()
 					}
+					change = true
 				}
 			}
-			serv := GetTail(service.Service.Path, "/")
-			if !CheckCtl(serv) {
-				fmt.Printf("Service %s has stopped. Restarting...\n", service.Name)
-				cmd := exec.Command("systemctl", "start", serv)
-				cmd.Run()
-				caret()
+			if config.upkeep {
+				serv := GetTail(service.Service.Path, "/")
+				if !CheckCtl(serv) {
+					fmt.Printf("Service %s has stopped. Restarting...\n", service.Name)
+					cmd := exec.Command("systemctl", "start", serv)
+					cmd.Run()
+					change = true
+				}
 			}
 		}
 		for _, file := range master.Files {
 			if !file.CheckSHA() {
-				if outputEnabled {
+				if config.outputEnabled {
 					fmt.Printf("\nError on checksum for %s (%s). Rewriting...\n", file.Name, file.Path)
 					if file.writeBackup() {
 						fmt.Println("Backup succeeded.")
 					} else {
 						fmt.Println("Backup failed.")
 					}
-					caret()
 				} else {
 					file.writeBackup()
 				}
+				change = true
 			}
 		}
-		time.Sleep(delay * time.Millisecond)
+		if change {
+			caret()
+		}
+		time.Sleep(config.delay * time.Millisecond)
 	}
 }
 
@@ -307,7 +371,7 @@ func FixICMP() {
 			if trim(readFile("/proc/sys/net/ipv4/icmp_echo_ignore_all")) != "0" {
 				cmd := exec.Command("/bin/sh", "-c", "echo 0 > /proc/sys/net/ipv4/icmp_echo_ignore_all")
 				cmd.Run()
-				if outputEnabled {
+				if config.outputEnabled {
 					fmt.Println("\nICMP change detected; Re-enabled ICMP")
 					caret()
 				}
@@ -315,7 +379,7 @@ func FixICMP() {
 		} else {
 			return
 		}
-		time.Sleep(icmpDelay * time.Millisecond)
+		time.Sleep(config.icmpDelay * time.Millisecond)
 	}
 }
 
@@ -343,7 +407,7 @@ func InitBackups() {
 }
 
 func InitConfig() Services {
-	configFile, err := os.Open("config.json")
+	configFile, err := os.Open(config.configFile)
 	defer configFile.Close()
 	if err != nil {
 		log.Fatal(err)
@@ -439,7 +503,7 @@ func CheckCtl(service string) bool {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			if outputEnabled {
+			if config.outputEnabled {
 				if (exitErr.String()) == "3" {
 					Warnf("\nSystemctl status 3 for service %s\n", service)
 				} else {
@@ -448,10 +512,10 @@ func CheckCtl(service string) bool {
 				// caret()
 			}
 		} else {
-			if outputEnabled {
+			if config.outputEnabled {
 				Errorf("\nFailed to run systemctl: %v\n", err)
 				// caret()
-				upkeep = false
+				config.upkeep = false
 			}
 			// os.Exit(1)
 		}

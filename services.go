@@ -75,7 +75,7 @@ func (a *ServiceObject) InitSO() bool {
 func (a *ServiceObject) GetBackupSHA() (string, bool) {
 	var path string = a.Path
 	filename := GetConfigName(a.Path)
-	if FileExists(filename) && loadFromConfig {
+	if FileExists(filename) && config.loadFromConfig {
 		path = filename
 	}
 	f, err := os.Open(path)
@@ -107,13 +107,13 @@ func GetConfigName(s string) string {
 		filename = strings.Join(strings.Split(s, "\\"), "/")
 	}
 	filename = strings.Join(strings.Split(filename, "/"), "._.")
-	return ".bandaid/" + filename
+	return config.backupLocation + "/" + filename
 }
 
 func (a *ServiceObject) InitBackup() {
 	filename := GetConfigName(a.Path)
 	var path string = a.Path
-	if FileExists(filename) && loadFromConfig {
+	if FileExists(filename) && config.loadFromConfig {
 		path = filename
 	}
 	f, _ := os.Open(path)
@@ -121,26 +121,30 @@ func (a *ServiceObject) InitBackup() {
 	defer f.Close()
 	stat, _ := os.Stat(path)
 	a.Mode = stat.Mode()
-	cnfPath := GetConfigName(a.Path)
-	writeFile(cnfPath, a.Backup)
-	os.Chmod(cnfPath, a.Mode)
+	if config.doBackup {
+		cnfPath := GetConfigName(a.Path)
+		writeFile(cnfPath, a.Backup)
+		os.Chmod(cnfPath, a.Mode)
+	}
 }
 
 func InitConfigFolder() {
-	if FileExists(".bandaid") {
-		Warnf("Detected .bandaid folder. Load from backup? [y/n]: ")
+	if FileExists(config.backupLocation) {
+		Warnf("Detected backup folder (%s). Load from backup? [y/n]: ", config.backupLocation)
 		reader := bufio.NewReader(os.Stdin)
 		rawAnswer, _ := reader.ReadString('\n')
 		answer := trim(rawAnswer)
 		if answer == "y" {
-			loadFromConfig = true
+			config.loadFromConfig = true
 		} else {
-			loadFromConfig = false
+			config.loadFromConfig = false
 		}
 		return
 	}
-	err := os.Mkdir(".bandaid", 0755)
-	if err != nil {
-		Errorf("Could not create config directory\n")
+	if config.doBackup {
+		err := os.Mkdir(config.backupLocation, 0755)
+		if err != nil {
+			Errorf("Could not create config directory (%s)\n", config.backupLocation)
+		}
 	}
 }

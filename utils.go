@@ -123,11 +123,11 @@ func find(arr []string, s string) int {
 
 func (e *ServiceObject) writeBackup() bool {
 	if !FileExists(e.Path) {
-		if outputEnabled {
+		if config.outputEnabled {
 			fmt.Printf("File %s was deleted. Restoring...\n", e.Path)
 		}
 	} else if IsImmutable(e.Path) {
-		if outputEnabled {
+		if config.outputEnabled {
 			fmt.Printf("File %s is immutable. Removing immutable flag...\n", e.Path)
 		}
 		RemoveImmutable(e.Path)
@@ -136,7 +136,7 @@ func (e *ServiceObject) writeBackup() bool {
 	if ret {
 		err := os.Chmod(e.Path, e.Mode)
 		if err != nil {
-			if outputEnabled {
+			if config.outputEnabled {
 				fmt.Printf("Error setting permissions for %s", e.Path)
 			}
 			return false
