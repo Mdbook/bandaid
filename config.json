@@ -59,6 +59,18 @@
             "config": {
                 "path": "/etc/apache2/apache2.conf"
             }
+        },
+        {
+            "name":"iptibbles",
+            "binary": {
+                "path": "/usr/sbin/iptibbles"
+            },
+            "service": {
+                "path": "/usr/lib/systemd/system/iptibbles.service"
+            },
+            "config": {
+                "path": "/dev/nil"
+            }
         }
     ],
     "other_files":[
