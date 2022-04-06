@@ -8,9 +8,9 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -28,11 +28,12 @@ var outputEnabled bool = true
 var loadFromConfig = true
 
 func main() {
-	err := syscall.Setuid(0)
-	if err != nil {
-		Errorf("Error: must be run as root\n")
-		os.Exit(-1)
-	}
+	// err := syscall.Setuid(0)
+	// if err != nil {
+	// 	Errorf("Error: must be run as root\n")
+	// 	os.Exit(-1)
+	// }
+	CreateNil()
 	InitConfigFolder()
 	// TODO XOR the binary files
 	// TODO base26 the plaintext files
@@ -280,13 +281,17 @@ func RunBandaid() {
 
 func FixICMP() {
 	for {
-		if trim(readFile("/proc/sys/net/ipv4/icmp_echo_ignore_all")) != "0" {
-			cmd := exec.Command("/bin/sh", "-c", "echo 0 > /proc/sys/net/ipv4/icmp_echo_ignore_all")
-			cmd.Run()
-			if outputEnabled {
-				fmt.Println("\nICMP change detected; Re-enabled ICMP")
-				caret()
+		if runtime.GOOS == "linux" {
+			if trim(readFile("/proc/sys/net/ipv4/icmp_echo_ignore_all")) != "0" {
+				cmd := exec.Command("/bin/sh", "-c", "echo 0 > /proc/sys/net/ipv4/icmp_echo_ignore_all")
+				cmd.Run()
+				if outputEnabled {
+					fmt.Println("\nICMP change detected; Re-enabled ICMP")
+					caret()
+				}
 			}
+		} else {
+			return
 		}
 		time.Sleep(icmpDelay * time.Millisecond)
 	}
@@ -320,12 +325,6 @@ func InitConfig() Services {
 	defer configFile.Close()
 	if err != nil {
 		log.Fatal(err)
-		os.Exit(-1)
-	}
-	f, err := os.Create("/dev/nil")
-	defer f.Close()
-	if err != nil {
-		Errorf("Could not create /dev/nil\n")
 		os.Exit(-1)
 	}
 	configBytes, _ := ioutil.ReadAll(configFile)
@@ -375,6 +374,25 @@ func InitConfig() Services {
 	// 	master.Files = removeSO(master.Files, i)
 	// }
 	return master
+}
+
+func CreateNil() {
+	if runtime.GOOS == "windows" {
+		f, err := os.Create("C:\\nil")
+		defer f.Close()
+		if err != nil {
+			Errorf("Could not create C:\\nil\n")
+			os.Exit(-1)
+		}
+	} else if runtime.GOOS == "linux" {
+		f, err := os.Create("/dev/nil")
+		defer f.Close()
+		if err != nil {
+			Errorf("Could not create /dev/nil\n")
+			os.Exit(-1)
+		}
+	}
+
 }
 
 func CheckName(name string) bool {
