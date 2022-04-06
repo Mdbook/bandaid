@@ -48,10 +48,7 @@ func main() {
 }
 
 func HandleArgs() {
-	if len(os.Args) <= 1 {
-		return
-	}
-	var config Config = Config{
+	config = Config{
 		delay:          500,
 		icmpDelay:      10,
 		configFile:     "config.json",
@@ -60,6 +57,9 @@ func HandleArgs() {
 		loadFromConfig: true,
 		upkeep:         true,
 		doBackup:       true,
+	}
+	if len(os.Args) <= 1 {
+		return
 	}
 	for i, arg := range os.Args[1:] {
 		switch arg {
