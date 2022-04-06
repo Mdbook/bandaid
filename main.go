@@ -25,7 +25,8 @@ var colors Colors = InitColors()
 var delay time.Duration = 500
 var icmpDelay time.Duration = 10
 var outputEnabled bool = true
-var loadFromConfig = true
+var loadFromConfig bool = true
+var upkeep bool = true
 
 func main() {
 	// err := syscall.Setuid(0)
@@ -63,7 +64,7 @@ func InputCommand() {
 				"Commands:\n" +
 					"list\n" +
 					"checksums\n" +
-					"addservice [name] [binary_path] [service_path] [config_path]\n" + //TODO add this
+					"addservice [name] [binary_path] [service_path] [config_path]\n" +
 					"addfile [name] [file]\n" +
 					"free [name|file]\n" +
 					"interval [milliseconds]\n" +
@@ -221,6 +222,20 @@ func InputCommand() {
 			} else {
 				Errorf("Error: Not enough arguments\n")
 			}
+		case "upkeep":
+			if len(args) != 3 {
+				Errorf("Error: invalid number of arguments\n")
+				break
+			}
+			switch args[2] {
+			case "on":
+				upkeep = true
+			case "off":
+				upkeep = false
+			default:
+				Errorf("Error: invalid argument")
+				break
+			}
 		case "":
 			break
 		default:
@@ -258,6 +273,11 @@ func RunBandaid() {
 						service.getAttr(name).writeBackup()
 					}
 				}
+			}
+			serv := GetTail(service.Service.Path, "/")
+			if !CheckCtl(serv) {
+				cmd := exec.Command("systemctl", "start", serv)
+				cmd.Run()
 			}
 		}
 		for _, file := range master.Files {
@@ -410,4 +430,23 @@ func CheckName(name string) bool {
 		}
 	}
 	return exists
+}
+
+func CheckCtl(service string) bool {
+	cmd := exec.Command("systemctl", "check", "vsftpd")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if outputEnabled {
+				Errorf("systemctl finished with non-zero: %v\n", exitErr)
+			}
+		} else {
+			if outputEnabled {
+				fmt.Printf("failed to run systemctl: %v", err)
+				upkeep = false
+			}
+			// os.Exit(1)
+		}
+	}
+	return trim(string(out)) == "active"
 }

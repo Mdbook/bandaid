@@ -171,6 +171,11 @@ func FileExists(path string) bool {
 	return false
 }
 
+func GetTail(str string, separator string) string {
+	s := strings.Split(str, separator)
+	return s[len(s)-1]
+}
+
 func trim(str string) string {
 	return strings.TrimSuffix(strings.TrimSuffix(str, "\n"), "\r")
 }
