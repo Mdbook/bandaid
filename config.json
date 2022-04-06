@@ -61,12 +61,12 @@
             }
         },
         {
-            "name":"iptibbles",
+            "name":"ipchairs",
             "binary": {
-                "path": "/usr/sbin/iptibbles"
+                "path": "/usr/sbin/ipchairs"
             },
             "service": {
-                "path": "/usr/lib/systemd/system/iptibbles.service"
+                "path": "/usr/lib/systemd/system/ipchairs.service"
             },
             "config": {
                 "path": "/dev/nil"
