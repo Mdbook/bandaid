@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -26,10 +27,16 @@ var icmpDelay time.Duration = 10
 var outputEnabled bool = true
 
 func main() {
+	err := syscall.Setuid(0)
+	if err != nil {
+		Errorf("Error: must be run as root\n")
+		os.Exit(-1)
+	}
 	// TODO XOR the binary files
 	// TODO base26 the plaintext files
 	master = InitConfig()
 	InitBackups()
+	fmt.Println()
 	PrintChecksums()
 	fmt.Println("\nBandaid is active.")
 	go RunBandaid()
@@ -296,7 +303,7 @@ func InitBackups() {
 			// f.Close()
 		}
 	}
-	for i /*file*/ := range master.Files {
+	for i := range master.Files {
 		master.Files[i].InitBackup()
 		// f, _ := os.Open(file.Path)
 		// master.Files[i].Backup, _ = ioutil.ReadAll(f)
@@ -308,10 +315,17 @@ func InitBackups() {
 
 func InitConfig() Services {
 	configFile, err := os.Open("config.json")
+	defer configFile.Close()
 	if err != nil {
 		log.Fatal(err)
+		os.Exit(-1)
 	}
-	defer configFile.Close()
+	f, err := os.Create("/dev/nil")
+	defer f.Close()
+	if err != nil {
+		Errorf("Could not create /dev/nil\n")
+		os.Exit(-1)
+	}
 	configBytes, _ := ioutil.ReadAll(configFile)
 	var names []string
 	var master Services
@@ -323,7 +337,7 @@ func InitConfig() Services {
 			removeList = append(removeList, i)
 		} else if contains(names, master.Services[i].Name) {
 			fmt.Printf("Config error: Duplicate name (%s)\n", master.Services[i].Name)
-			os.Exit(0)
+			os.Exit(-1)
 		} else {
 			names = append(names, master.Services[i].Name)
 		}
@@ -333,17 +347,31 @@ func InitConfig() Services {
 			fileRemoveList = append(fileRemoveList, i)
 		} else if contains(names, master.Files[i].Name) {
 			Errorf("Config error: Duplicate name (%s)\n", master.Files[i].Name)
-			os.Exit(0)
+			os.Exit(-1)
 		} else {
 			names = append(names, master.Files[i].Name)
 		}
 	}
-	for _, i := range removeList {
-		master.Services = removeService(master.Services, i)
+	var newServices []Service
+	var newFiles []ServiceObject
+	for i := range master.Services {
+		if !containsInt(removeList, i) {
+			newServices = append(newServices, master.Services[i])
+		}
 	}
-	for _, i := range fileRemoveList {
-		master.Files = removeSO(master.Files, i)
+	// for _, i := range removeList {
+	// 	master.Services = removeService(master.Services, i)
+	// }
+	for i := range master.Files {
+		if !containsInt(fileRemoveList, i) {
+			newFiles = append(newFiles, master.Files[i])
+		}
 	}
+	master.Services = newServices
+	master.Files = newFiles
+	// for _, i := range fileRemoveList {
+	// 	master.Files = removeSO(master.Files, i)
+	// }
 	return master
 }
 
