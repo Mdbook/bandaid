@@ -87,6 +87,15 @@ func contains(arr []string, s string) bool {
 	return false
 }
 
+func containsInt(arr []int, i int) bool {
+	for _, e := range arr {
+		if e == i {
+			return true
+		}
+	}
+	return false
+}
+
 func find(arr []string, s string) int {
 	for i, str := range arr {
 		if str == s {
