@@ -25,6 +25,7 @@ var colors Colors = InitColors()
 var delay time.Duration = 500
 var icmpDelay time.Duration = 10
 var outputEnabled bool = true
+var loadFromConfig = true
 
 func main() {
 	err := syscall.Setuid(0)
@@ -32,6 +33,7 @@ func main() {
 		Errorf("Error: must be run as root\n")
 		os.Exit(-1)
 	}
+	InitConfigFolder()
 	// TODO XOR the binary files
 	// TODO base26 the plaintext files
 	master = InitConfig()

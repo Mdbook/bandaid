@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 type ServiceObject struct {
@@ -51,7 +53,7 @@ func (a *Service) Init() bool {
 			Warnf("Filepath error while importing %s. Skipping...\n", a.Name)
 			return false
 		}
-		location.Checksum, err = location.GetSHA()
+		location.Checksum, err = location.GetBackupSHA()
 	}
 	if err {
 		Warnf("Filepath error while importing %s. Skipping...\n", a.Name)
@@ -59,14 +61,32 @@ func (a *Service) Init() bool {
 	}
 	return true
 }
+
 func (a *ServiceObject) InitSO() bool {
 	var err bool
-	a.Checksum, err = a.GetSHA()
+	a.Checksum, err = a.GetBackupSHA()
 	if err {
 		Warnf("Filepath error while importing %s. Skipping...\n", a.Name)
 		return false
 	}
 	return true
+}
+
+func (a *ServiceObject) GetBackupSHA() (string, bool) {
+	var path string = a.Path
+	filename := GetConfigName(a.Path)
+	if FileExists(filename) && loadFromConfig {
+		path = filename
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "ERR", true
+	}
+	defer f.Close()
+	read, err := ioutil.ReadAll(f)
+	sha := sha256.Sum256(read)
+	ret := hex.EncodeToString(sha[:])
+	return ret, false
 }
 
 func (a *ServiceObject) GetSHA() (string, bool) {
@@ -81,10 +101,46 @@ func (a *ServiceObject) GetSHA() (string, bool) {
 	return ret, false
 }
 
+func GetConfigName(s string) string {
+	var filename string = s
+	if strings.Contains(s, "\\") {
+		filename = strings.Join(strings.Split(s, "\\"), "/")
+	}
+	filename = strings.Join(strings.Split(filename, "/"), "._.")
+	return ".config/" + filename
+}
+
 func (a *ServiceObject) InitBackup() {
-	f, _ := os.Open(a.Path)
+	filename := GetConfigName(a.Path)
+	var path string = a.Path
+	if FileExists(filename) && loadFromConfig {
+		path = filename
+	}
+	f, _ := os.Open(path)
 	a.Backup, _ = ioutil.ReadAll(f)
 	defer f.Close()
-	stat, _ := os.Stat(a.Path)
+	stat, _ := os.Stat(path)
 	a.Mode = stat.Mode()
+	cnfPath := GetConfigName(a.Path)
+	writeFile(cnfPath, a.Backup)
+	os.Chmod(cnfPath, a.Mode)
+}
+
+func InitConfigFolder() {
+	if FileExists(".config") {
+		Warnf("Detected .config folder. Load from config? [y/n]: ")
+		reader := bufio.NewReader(os.Stdin)
+		rawAnswer, _ := reader.ReadString('\n')
+		answer := trim(rawAnswer)
+		if answer == "y" {
+			loadFromConfig = true
+		} else {
+			loadFromConfig = false
+		}
+		return
+	}
+	err := os.Mkdir(".config", 0755)
+	if err != nil {
+		Errorf("Could not create config directory\n")
+	}
 }
