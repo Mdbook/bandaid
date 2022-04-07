@@ -86,5 +86,6 @@
             "name":"index.html",
             "path":"/var/www/html/index.html"
         }
-    ]
+    ],
+    "directories":[]
 }

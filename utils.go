@@ -50,6 +50,14 @@ func InitColors() Colors {
 
 }
 
+func ConcatenatePath(root string, file string) string {
+	if root[len(root)-1:] == "/" {
+		return root + file
+	} else {
+		return root + "/" + file
+	}
+}
+
 func CopyFile(src, dst string) (int64, error) {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
@@ -89,7 +97,13 @@ func removeSO(slice []ServiceObject, s int) []ServiceObject {
 		return append(slice[:s], slice[s+1:]...)
 	}
 }
-
+func removeDirectory(slice []Directory, s int) []Directory {
+	if s == len(slice) {
+		return slice[:s-1]
+	} else {
+		return append(slice[:s], slice[s+1:]...)
+	}
+}
 func (e *Service) getAttr(field string) *ServiceObject {
 	return e.locations[find(serviceNames, field)]
 }
@@ -119,30 +133,6 @@ func find(arr []string, s string) int {
 		}
 	}
 	return -1
-}
-
-func (e *ServiceObject) writeBackup() bool {
-	if !FileExists(e.Path) {
-		if config.outputEnabled {
-			fmt.Printf("File %s was deleted. Restoring...\n", e.Path)
-		}
-	} else if IsImmutable(e.Path) {
-		if config.outputEnabled {
-			fmt.Printf("File %s is immutable. Removing immutable flag...\n", e.Path)
-		}
-		RemoveImmutable(e.Path)
-	}
-	ret := writeFile(e.Path, e.Backup)
-	if ret {
-		err := os.Chmod(e.Path, e.Mode)
-		if err != nil {
-			if config.outputEnabled {
-				fmt.Printf("Error setting permissions for %s", e.Path)
-			}
-			return false
-		}
-	}
-	return ret
 }
 
 func writeFile(file string, contents []byte) bool {

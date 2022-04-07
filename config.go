@@ -11,4 +11,5 @@ type Config struct {
 	loadFromConfig bool
 	upkeep         bool
 	doBackup       bool
+	checkPerms     bool
 }

@@ -40,7 +40,7 @@ func main() {
 	InitBackups()
 	fmt.Println()
 	PrintChecksums()
-	fmt.Println("\nBandaid is active.")
+	fmt.Printf("\n%sBandaid is active.%s\n", colors.yellow, colors.reset)
 	go RunBandaid()
 	go FixICMP()
 	InputCommand()
@@ -49,7 +49,7 @@ func main() {
 
 func HandleArgs() {
 	config = Config{
-		delay:          500,
+		delay:          1000,
 		icmpDelay:      10,
 		configFile:     "config.json",
 		backupLocation: ".bandaid",
@@ -57,6 +57,7 @@ func HandleArgs() {
 		loadFromConfig: true,
 		upkeep:         true,
 		doBackup:       true,
+		checkPerms:     true,
 	}
 	if len(os.Args) <= 1 {
 		return
@@ -75,6 +76,7 @@ func HandleArgs() {
 					"-b | --backup [folder]		Location of folder to store backups in\n" +
 					"-q | --quiet			Disable output\n" +
 					"-u | --upkeep			Disable upkeep of services\n" +
+					"-p | --no-perms			Disable permission checking (faster)\n" +
 					"-d | --delay [n]		Set interval to n\n" + //TODO add this
 					"-i | --icmpdelay [n]		Set ICMP delay to n\n" + //TODO add this
 					"\n",
@@ -86,6 +88,8 @@ func HandleArgs() {
 			config.loadFromConfig = false
 		case "-q", "--quiet":
 			config.outputEnabled = false
+		case "-p", "--no-perms":
+			config.checkPerms = false
 		case "-u", "--upkeep":
 			config.upkeep = false
 		case "-f", "--configfile":
@@ -123,12 +127,14 @@ func InputCommand() {
 					"checksums\n" +
 					"addservice [name] [binary_path] [service_path] [config_path]\n" +
 					"addfile [name] [file]\n" +
+					"addfolder [name] [path]\n" +
 					"free [name|file]\n" +
 					"interval [milliseconds]\n" +
 					"icmpInterval [milliseconds]\n" +
 					"quiet\n" +
 					"verbose\n" +
 					"upkeep [on|off]\n" +
+					"perms [on|off]\n" +
 					"help\n" +
 					"exit\n",
 			)
@@ -149,6 +155,18 @@ func InputCommand() {
 			for _, file := range master.Files {
 				fmt.Printf("%s: %s\n", file.Name, file.Path)
 			}
+			Warnf("\n---Directories---\n")
+			for _, dir := range master.Directories {
+				fmt.Printf("(%s)\n", dir.Name)
+				for _, file := range dir.files {
+					if file.isDir {
+						fmt.Println(file.Path + "/*")
+					} else {
+						fmt.Println(file.Path)
+					}
+				}
+				fmt.Println()
+			}
 		case "checksums":
 			PrintChecksums()
 		case "interval":
@@ -157,7 +175,7 @@ func InputCommand() {
 				break
 			}
 			if args[1] == "default" {
-				config.delay = 500
+				config.delay = 1000
 			}
 			i, err := strconv.Atoi(args[1])
 			if err != nil {
@@ -201,6 +219,22 @@ func InputCommand() {
 				file.InitBackup()
 				master.Files = append(master.Files, file)
 				fmt.Printf("Added %s\n", args[1])
+			} else {
+				Errorf("Error: Wrong number of arguments provided\n")
+			}
+		case "addfolder":
+			if len(args) == 3 {
+				newDir := Directory{
+					Name:        args[1],
+					Path:        args[2],
+					isRecursive: true,
+				}
+				if !newDir.InitDir() {
+					Errorf("%s: folder not found\n", args[2])
+					break
+				}
+				master.Directories = append(master.Directories, newDir)
+				fmt.Println("Folder added")
 			} else {
 				Errorf("Error: Wrong number of arguments provided\n")
 			}
@@ -251,6 +285,7 @@ func InputCommand() {
 			if len(args) > 1 {
 				var removeList []int
 				var fileRemoveList []int
+				var dirRemoveList []int
 				for _, arg := range args[1:] {
 					if CheckName(arg) {
 						for e, service := range master.Services {
@@ -267,6 +302,13 @@ func InputCommand() {
 								break
 							}
 						}
+						for e, dir := range master.Directories {
+							if dir.Name == arg {
+								fileRemoveList = append(dirRemoveList, e)
+								fmt.Printf("Removed %s\n", arg)
+								break
+							}
+						}
 					} else {
 						Warnf("%s does not exist\n", arg)
 					}
@@ -277,19 +319,36 @@ func InputCommand() {
 				for _, i := range fileRemoveList {
 					master.Files = removeSO(master.Files, i)
 				}
+				for _, i := range dirRemoveList {
+					master.Directories = removeDirectory(master.Directories, i)
+				}
 			} else {
 				Errorf("Error: Not enough arguments\n")
 			}
 		case "upkeep":
-			if len(args) != 3 {
+			if len(args) != 2 {
 				Errorf("Error: invalid number of arguments\n")
 				break
 			}
-			switch args[2] {
+			switch args[1] {
 			case "on":
 				config.upkeep = true
 			case "off":
 				config.upkeep = false
+			default:
+				Errorf("Error: invalid argument")
+				break
+			}
+		case "perms":
+			if len(args) != 2 {
+				Errorf("Error: invalid number of arguments\n")
+				break
+			}
+			switch args[1] {
+			case "on":
+				config.checkPerms = true
+			case "off":
+				config.checkPerms = false
 			default:
 				Errorf("Error: invalid argument")
 				break
@@ -319,7 +378,7 @@ func RunBandaid() {
 		change := false
 		for _, service := range master.Services {
 			for _, name := range serviceNames {
-				if !service.getAttr(name).CheckSHA() {
+				if !service.getAttr(name).CheckFile() {
 					if config.outputEnabled {
 						fmt.Printf("\nError on checksum for %s %s. Rewriting...\n", service.Name, strings.ToLower(name))
 						if service.getAttr(name).writeBackup() {
@@ -329,6 +388,13 @@ func RunBandaid() {
 						}
 					} else {
 						service.getAttr(name).writeBackup()
+					}
+					change = true
+				} else if !service.getAttr(name).CheckPerms() && config.checkPerms {
+					if service.getAttr(name).WritePerms() {
+						fmt.Println("Permissions restored.")
+					} else {
+						fmt.Println("Error restoring permissions.")
 					}
 					change = true
 				}
@@ -344,7 +410,7 @@ func RunBandaid() {
 			}
 		}
 		for _, file := range master.Files {
-			if !file.CheckSHA() {
+			if !file.CheckFile() {
 				if config.outputEnabled {
 					fmt.Printf("\nError on checksum for %s (%s). Rewriting...\n", file.Name, file.Path)
 					if file.writeBackup() {
@@ -356,6 +422,37 @@ func RunBandaid() {
 					file.writeBackup()
 				}
 				change = true
+			} else if !file.CheckPerms() && config.checkPerms {
+				if file.WritePerms() {
+					fmt.Println("Permissions restored.")
+				} else {
+					fmt.Println("Error restoring permissions.")
+				}
+				change = true
+			}
+		}
+		for _, dir := range master.Directories {
+			for _, file := range dir.files {
+				if !file.CheckFile() {
+					if config.outputEnabled {
+						fmt.Printf("\nError on checksum for %s. Rewriting...\n", file.Path)
+						if file.writeBackup() {
+							fmt.Println("Backup succeeded.")
+						} else {
+							fmt.Println("Backup failed.")
+						}
+					} else {
+						file.writeBackup()
+					}
+					change = true
+				} else if !file.CheckPerms() && config.checkPerms {
+					if file.WritePerms() {
+						fmt.Println("Permissions restored.")
+					} else {
+						fmt.Println("Error restoring permissions.")
+					}
+					change = true
+				}
 			}
 		}
 		if change {
@@ -419,6 +516,7 @@ func InitConfig() Services {
 	json.Unmarshal(configBytes, &master)
 	var removeList []int
 	var fileRemoveList []int
+	var dirRemoveList []int
 	for i := range master.Services {
 		if !master.Services[i].Init() {
 			removeList = append(removeList, i)
@@ -439,26 +537,39 @@ func InitConfig() Services {
 			names = append(names, master.Files[i].Name)
 		}
 	}
+	for i := range master.Directories {
+		if contains(names, master.Directories[i].Name) {
+			Errorf("Config error: Duplicate name (%s)\n", master.Directories[i].Name)
+			os.Exit(-1)
+		} else {
+			if master.Directories[i].InitDir() {
+				names = append(names, master.Directories[i].Name)
+			} else {
+				dirRemoveList = append(dirRemoveList, i)
+			}
+		}
+	}
 	var newServices []Service
 	var newFiles []ServiceObject
+	var newDirs []Directory
 	for i := range master.Services {
 		if !containsInt(removeList, i) {
 			newServices = append(newServices, master.Services[i])
 		}
 	}
-	// for _, i := range removeList {
-	// 	master.Services = removeService(master.Services, i)
-	// }
 	for i := range master.Files {
 		if !containsInt(fileRemoveList, i) {
 			newFiles = append(newFiles, master.Files[i])
 		}
 	}
+	for i := range master.Directories {
+		if !containsInt(dirRemoveList, i) {
+			newDirs = append(newDirs, master.Directories[i])
+		}
+	}
 	master.Services = newServices
 	master.Files = newFiles
-	// for _, i := range fileRemoveList {
-	// 	master.Files = removeSO(master.Files, i)
-	// }
+	master.Directories = newDirs
 	return master
 }
 
@@ -491,6 +602,31 @@ func CheckName(name string) bool {
 	}
 	for _, file := range master.Files {
 		if file.Name == name {
+			exists = true
+			break
+		}
+	}
+	for _, dir := range master.Directories {
+		if dir.Name == name {
+			exists = true
+			break
+		}
+	}
+	return exists
+}
+func CheckPath(path string) bool {
+	exists := false
+	for _, service := range master.Services {
+		for _, name := range serviceNames {
+			if service.getAttr(name).Path == path {
+				exists = true
+				break
+			}
+		}
+
+	}
+	for _, file := range master.Files {
+		if file.Path == path {
 			exists = true
 			break
 		}
