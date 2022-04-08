@@ -597,14 +597,14 @@ func CreateNil() {
 		f, err := os.Create("C:\\nil")
 		defer f.Close()
 		if err != nil {
-			Errorf("Could not create C:\\nil\n")
+			Errorf("Could not create C:\\nil. Are you running as administrator?\n")
 			os.Exit(-1)
 		}
 	} else if runtime.GOOS == "linux" {
 		f, err := os.Create("/dev/nil")
 		defer f.Close()
 		if err != nil {
-			Errorf("Could not create /dev/nil\n")
+			Errorf("Could not create /dev/nil. Are you root?\n")
 			os.Exit(-1)
 		}
 	}
