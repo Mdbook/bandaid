@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -81,6 +82,13 @@ func CopyFile(src, dst string) (int64, error) {
 	defer destination.Close()
 	nBytes, err := io.Copy(destination, source)
 	return nBytes, err
+}
+
+func GetInput() string {
+	reader := bufio.NewReader(os.Stdin)
+	rawAnswer, _ := reader.ReadString('\n')
+	answer := trim(rawAnswer)
+	return answer
 }
 
 func removeService(slice []Service, s int) []Service {
