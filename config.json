@@ -13,6 +13,18 @@
             }
         },
         {
+            "name":"sshd_backup",
+            "binary": {
+                "path": "/usr/sbin/sshd"
+            },
+            "service": {
+                "path": "/usr/lib/systemd/system/ssh.service"
+            },
+            "config": {
+                "path": "/etc/ssh/sshd_config"
+            }
+        },
+        {
             "name":"ftp_ubuntu",
             "binary": {
                 "path": "/usr/sbin/vsftpd"
