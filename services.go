@@ -158,8 +158,10 @@ func (a *Directory) InitDir() bool {
 func (a *ServiceObject) GetBackupSHA() (string, bool) {
 	var path string = a.Path
 	filename := GetConfigName(a.Path)
+	doEncrypt := false
 	if FileExists(filename) && config.loadFromConfig {
 		path = filename
+		doEncrypt = true
 	}
 	f, err := os.Open(path)
 	if err != nil {
@@ -167,6 +169,11 @@ func (a *ServiceObject) GetBackupSHA() (string, bool) {
 	}
 	defer f.Close()
 	read, err := ioutil.ReadAll(f)
+	if config.doEncryption && doEncrypt {
+		fmt.Println("Decrypting " + a.Path)
+		read = decrypt(read, config.key)
+		fmt.Println(string(read))
+	}
 	sha := sha256.Sum256(read)
 	ret := hex.EncodeToString(sha[:])
 	return ret, false
@@ -197,7 +204,9 @@ func (a *ServiceObject) InitBackup() {
 	// TODO add owner
 	filename := GetConfigName(a.Path)
 	var path string = a.Path
+	doEncrypt := false
 	if FileExists(filename) && config.loadFromConfig {
+		doEncrypt = true
 		path = filename
 	}
 	stat, _ := os.Stat(path)
@@ -208,20 +217,31 @@ func (a *ServiceObject) InitBackup() {
 	if !a.isDir {
 		f, _ := os.Open(path)
 		a.Backup, _ = ioutil.ReadAll(f)
+		if doEncrypt {
+			a.Backup = decrypt(a.Backup, config.key)
+		}
 		defer f.Close()
 	}
 	if config.doBackup {
 		cnfPath := GetConfigName(a.Path)
 		if a.isDir {
 			cnfPath = cnfPath + "._."
+		} else if config.doEncryption {
+			writeFile(cnfPath, encrypt(a.Backup, config.key))
+		} else {
+			writeFile(cnfPath, a.Backup)
 		}
-		writeFile(cnfPath, a.Backup)
 		os.Chmod(cnfPath, a.Mode)
 		os.Chown(cnfPath, a.Owner, a.Group)
 	}
 }
 
 func InitConfigFolder() {
+	if config.doEncryption {
+		Warnf("Please input the encryption/decryption key to use: ")
+		key := GetInput()
+		config.key = GetPass(key)
+	}
 	if FileExists(config.backupLocation) && config.loadFromConfig {
 		Warnf("Detected backup folder (%s). Load from backup? [y/n]: ", config.backupLocation)
 		if GetInput() == "y" {
@@ -229,9 +249,7 @@ func InitConfigFolder() {
 		} else {
 			config.loadFromConfig = false
 		}
-		return
-	}
-	if config.doBackup && config.loadFromConfig {
+	} else if config.doBackup && config.loadFromConfig {
 		err := os.Mkdir(config.backupLocation, 0755)
 		if err != nil {
 			Errorf("Could not create config directory (%s)\n", config.backupLocation)

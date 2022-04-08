@@ -52,11 +52,13 @@ func HandleArgs() {
 		icmpDelay:      10,
 		configFile:     "config.json",
 		backupLocation: ".bandaid",
+		key:            GetPass("uns3cure"),
 		outputEnabled:  true,
 		loadFromConfig: true,
 		upkeep:         true,
 		doBackup:       true,
 		checkPerms:     true,
+		doEncryption:   true,
 	}
 	if len(os.Args) <= 1 {
 		return
@@ -64,8 +66,8 @@ func HandleArgs() {
 	for i, arg := range os.Args[1:] {
 		switch arg {
 		case "-h", "--help":
-			fmt.Printf(
-				colors.green + "Bandaid v1.2: Made by Michael Burke\n" + colors.reset +
+			fmt.Printf( //TODO add optional encryption
+				colors.green + "Bandaid v1.2: Made by Mikayla Burke\n" + colors.reset +
 					"Usage: ./bandaid [args]\n" +
 					"\nCommands:\n" +
 					"-h | --help			Display help\n" +
@@ -216,6 +218,7 @@ func InputCommand() {
 					break
 				}
 				file.InitBackup()
+				fmt.Println(string(file.Backup))
 				master.Files = append(master.Files, file)
 				fmt.Printf("Added %s\n", args[1])
 			} else {

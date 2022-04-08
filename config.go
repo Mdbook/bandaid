@@ -7,11 +7,13 @@ type Config struct {
 	icmpDelay      time.Duration
 	configFile     string
 	backupLocation string
+	key            []byte
 	outputEnabled  bool
 	loadFromConfig bool
 	upkeep         bool
 	doBackup       bool
 	checkPerms     bool
+	doEncryption   bool
 }
 
 var defaultConfig string = `{

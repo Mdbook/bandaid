@@ -2,6 +2,9 @@ package main
 
 import (
 	"bufio"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -91,6 +94,64 @@ func GetInput() string {
 	return answer
 }
 
+func decrypt(ciphertext, key []byte) []byte {
+	// Create the AES cipher
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+
+	// Before even testing the decryption,
+	// if the text is too small, then it is incorrect
+	if len(ciphertext) < aes.BlockSize {
+		fmt.Println("error")
+		return ciphertext
+	}
+
+	// Get the 16 byte IV
+	iv := ciphertext[:aes.BlockSize]
+
+	// Remove the IV from the ciphertext
+	ciphertext = ciphertext[aes.BlockSize:]
+
+	// Return a decrypted stream
+	stream := cipher.NewCFBDecrypter(block, iv)
+
+	// Decrypt bytes from ciphertext
+	stream.XORKeyStream(ciphertext, ciphertext)
+
+	return ciphertext
+}
+
+func encrypt(plaintext, key []byte) []byte {
+	// Create the AES cipher
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+	// if len(plaintext) < aes.BlockSize {
+	// 	return plaintext
+	// }
+	// Empty array of 16 + plaintext length
+	// Include the IV at the beginning
+	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+
+	// Slice of first 16 bytes
+	iv := ciphertext[:aes.BlockSize]
+
+	// Write 16 rand bytes to fill iv
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		panic(err)
+	}
+
+	// Return an encrypted stream
+	stream := cipher.NewCFBEncrypter(block, iv)
+
+	// Encrypt bytes from plaintext to ciphertext
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+	return ciphertext
+}
+
 func removeService(slice []Service, s int) []Service {
 	if s == len(slice) {
 		return slice[:s-1]
@@ -114,6 +175,21 @@ func removeDirectory(slice []Directory, s int) []Directory {
 }
 func (e *Service) getAttr(field string) *ServiceObject {
 	return e.locations[find(serviceNames, field)]
+}
+
+func GetPass(str string) []byte {
+	str = Reverse(str)
+	if len(str) >= 16 {
+		str = str[:16]
+	} else {
+		for {
+			str = "z" + str
+			if len(str) == 16 {
+				break
+			}
+		}
+	}
+	return []byte(str)
 }
 
 func contains(arr []string, s string) bool {
@@ -167,6 +243,14 @@ func FileExists(path string) bool {
 		return true
 	}
 	return false
+}
+
+func Reverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
 }
 
 func GetTail(str string, separator string) string {
