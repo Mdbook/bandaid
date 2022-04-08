@@ -75,6 +75,7 @@ func HandleArgs() {
 					"-r | --norestore		Don't restore from backup\n" +
 					"-f | --configfile [file]	Path for the config.json file\n" +
 					"-b | --backup [folder]		Location of folder to store backups in\n" +
+					"-e | --noencrypt		Don't encrypt backup folder\n" +
 					"-q | --quiet			Disable output\n" +
 					"-u | --upkeep			Disable upkeep of services\n" +
 					"-p | --no-perms			Disable permission checking (faster)\n" +
@@ -85,6 +86,8 @@ func HandleArgs() {
 			os.Exit(0)
 		case "-n", "--nobackup":
 			config.doBackup = false
+		case "-e", "--noencrypt":
+			config.doEncryption = false
 		case "-r", "--norestore":
 			config.loadFromConfig = false
 		case "-q", "--quiet":
