@@ -192,6 +192,29 @@ func GetPass(str string) []byte {
 	return []byte(str)
 }
 
+func GetConfigName(s string) string {
+	s = badcaesar(s, 13)
+	var filename string = s
+	if strings.Contains(s, "\\") {
+		filename = strings.Join(strings.Split(s, "\\"), "/")
+	}
+	filename = strings.Join(strings.Split(filename, "/"), "._.")
+	return config.backupLocation + "/" + filename
+}
+
+func badcaesar(s string, shift int) string {
+	// Shift character by specified number of places.
+	valids := "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+	str := ""
+	for _, c := range strings.Split(s, "") {
+		if strings.Contains(valids, c) {
+			c = string(valids[strings.Index(valids, c)+shift])
+		}
+		str += c
+	}
+	return str
+}
+
 func contains(arr []string, s string) bool {
 	for _, str := range arr {
 		if str == s {

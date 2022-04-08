@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
-	"strings"
 	"syscall"
 )
 
@@ -170,9 +169,7 @@ func (a *ServiceObject) GetBackupSHA() (string, bool) {
 	defer f.Close()
 	read, err := ioutil.ReadAll(f)
 	if config.doEncryption && doEncrypt {
-		fmt.Println("Decrypting " + a.Path)
 		read = decrypt(read, config.key)
-		fmt.Println(string(read))
 	}
 	sha := sha256.Sum256(read)
 	ret := hex.EncodeToString(sha[:])
@@ -189,15 +186,6 @@ func (a *ServiceObject) GetSHA() (string, bool) {
 	sha := sha256.Sum256(read)
 	ret := hex.EncodeToString(sha[:])
 	return ret, false
-}
-
-func GetConfigName(s string) string {
-	var filename string = s
-	if strings.Contains(s, "\\") {
-		filename = strings.Join(strings.Split(s, "\\"), "/")
-	}
-	filename = strings.Join(strings.Split(filename, "/"), "._.")
-	return config.backupLocation + "/" + filename
 }
 
 func (a *ServiceObject) InitBackup() {
