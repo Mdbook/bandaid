@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -82,7 +81,7 @@ func HandleArgs() {
 					"\n",
 			)
 			os.Exit(0)
-		case "-b", "--nobackup":
+		case "-n", "--nobackup":
 			config.doBackup = false
 		case "-r", "--norestore":
 			config.loadFromConfig = false
@@ -99,7 +98,7 @@ func HandleArgs() {
 				Errorf("Error: must provide a config file location to use with --configfile\n")
 				os.Exit(-1)
 			}
-		case "-d", "--backup":
+		case "-b", "--backup":
 			if i <= len(os.Args)-2 {
 				config.backupLocation = os.Args[i+2]
 			} else {
@@ -151,10 +150,6 @@ func InputCommand() {
 				}
 				fmt.Println()
 			}
-			Warnf("\n---Files---\n")
-			for _, file := range master.Files {
-				fmt.Printf("%s: %s\n", file.Name, file.Path)
-			}
 			Warnf("\n---Directories---\n")
 			for _, dir := range master.Directories {
 				fmt.Printf("(%s)\n", dir.Name)
@@ -166,6 +161,10 @@ func InputCommand() {
 					}
 				}
 				fmt.Println()
+			}
+			Warnf("\n---Files---\n")
+			for _, file := range master.Files {
+				fmt.Printf("%s: %s\n", file.Name, file.Path)
 			}
 		case "checksums":
 			PrintChecksums()
@@ -296,15 +295,15 @@ func InputCommand() {
 							}
 						}
 						for e, file := range master.Files {
-							if file.Name == arg {
+							if file.Name == arg || file.Path == arg {
 								fileRemoveList = append(fileRemoveList, e)
 								fmt.Printf("Removed %s\n", arg)
 								break
 							}
 						}
 						for e, dir := range master.Directories {
-							if dir.Name == arg {
-								fileRemoveList = append(dirRemoveList, e)
+							if dir.Name == arg || dir.Path == arg {
+								dirRemoveList = append(dirRemoveList, e)
 								fmt.Printf("Removed %s\n", arg)
 								break
 							}
@@ -367,7 +366,15 @@ func PrintChecksums() {
 	for _, service := range master.Services {
 		fmt.Printf("(%s)\nConfig checksum: %s\nBinary checksum: %s\nService checksum: %s\n\n", service.Name, service.Config.Checksum, service.Binary.Checksum, service.Service.Checksum)
 	}
-	Warnf("---Files---\n")
+	Warnf("---Files nested in directories---\n")
+	for _, dir := range master.Directories {
+		for _, file := range dir.files {
+			if !file.isDir {
+				fmt.Printf("%s: %s\n", file.Path, file.Checksum)
+			}
+		}
+	}
+	Warnf("\n---Files---\n")
 	for _, file := range master.Files {
 		fmt.Printf("%s: %s\n", file.Path, file.Checksum)
 	}
@@ -506,11 +513,17 @@ func InitBackups() {
 func InitConfig() Services {
 	configFile, err := os.Open(config.configFile)
 	defer configFile.Close()
+	var configBytes []byte
 	if err != nil {
-		log.Fatal(err)
-		os.Exit(-1)
+		Errorf("Could not load config file. Load default config? [y/n]: ")
+		if GetInput() == "y" {
+			configBytes = []byte(defaultConfig)
+		} else {
+			os.Exit(-1)
+		}
+	} else {
+		configBytes, _ = ioutil.ReadAll(configFile)
 	}
-	configBytes, _ := ioutil.ReadAll(configFile)
 	var names []string
 	var master Services
 	json.Unmarshal(configBytes, &master)

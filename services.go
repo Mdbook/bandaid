@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -223,19 +222,16 @@ func (a *ServiceObject) InitBackup() {
 }
 
 func InitConfigFolder() {
-	if FileExists(config.backupLocation) {
+	if FileExists(config.backupLocation) && config.loadFromConfig {
 		Warnf("Detected backup folder (%s). Load from backup? [y/n]: ", config.backupLocation)
-		reader := bufio.NewReader(os.Stdin)
-		rawAnswer, _ := reader.ReadString('\n')
-		answer := trim(rawAnswer)
-		if answer == "y" {
+		if GetInput() == "y" {
 			config.loadFromConfig = true
 		} else {
 			config.loadFromConfig = false
 		}
 		return
 	}
-	if config.doBackup {
+	if config.doBackup && config.loadFromConfig {
 		err := os.Mkdir(config.backupLocation, 0755)
 		if err != nil {
 			Errorf("Could not create config directory (%s)\n", config.backupLocation)
