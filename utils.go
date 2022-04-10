@@ -153,6 +153,8 @@ func encrypt(plaintext, key []byte) []byte {
 }
 
 func removeService(slice []Service, s int) []Service {
+	isFreeing.Lock()
+	defer isFreeing.Unlock()
 	for _, name := range serviceNames {
 		slice[s].getAttr(name).Backup = nil
 		slice[s].getAttr(name).Path = ""
@@ -166,6 +168,8 @@ func removeService(slice []Service, s int) []Service {
 	}
 }
 func removeSO(slice []ServiceObject, s int) []ServiceObject {
+	isFreeing.Lock()
+	defer isFreeing.Unlock()
 	slice[s].Backup = nil
 	slice[s].Checksum = ""
 	slice[s].Checksum = ""
@@ -177,6 +181,8 @@ func removeSO(slice []ServiceObject, s int) []ServiceObject {
 	}
 }
 func removeDirectory(slice []Directory, s int) []Directory {
+	isFreeing.Lock()
+	defer isFreeing.Unlock()
 	for i := range slice[s].files {
 		slice[s].files[i].Backup = nil
 		slice[s].files[i].Checksum = ""

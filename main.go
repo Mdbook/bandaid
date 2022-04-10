@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,6 +21,7 @@ var serviceNames []string = []string{
 	"Service",
 	"Config",
 }
+var isFreeing sync.Mutex
 var colors Colors = InitColors()
 var config Config
 
@@ -390,6 +392,7 @@ func RunBandaid() {
 		change := false
 		for _, service := range master.Services {
 			for _, name := range serviceNames {
+				isFreeing.Lock()
 				if !service.getAttr(name).CheckFile() {
 					if config.outputEnabled {
 						fmt.Printf("\nError on checksum for %s %s. Rewriting...\n", service.Name, strings.ToLower(name))
@@ -410,17 +413,19 @@ func RunBandaid() {
 					}
 					change = true
 				}
+				isFreeing.Unlock()
 			}
 			if config.upkeep {
 				serv := GetTail(service.Service.Path, "/")
 				if !CheckCtl(serv) {
-					fmt.Printf("Service %s has stopped. Restarting...\n", service.Name)
+					fmt.Printf("\nService %s has stopped. Restarting...\n", service.Name)
 					cmd := exec.Command("systemctl", "start", serv)
 					cmd.Run()
 					change = true
 				}
 			}
 		}
+		isFreeing.Lock()
 		for _, file := range master.Files {
 			if !file.CheckFile() {
 				if config.outputEnabled {
@@ -467,6 +472,7 @@ func RunBandaid() {
 				}
 			}
 		}
+		isFreeing.Unlock()
 		if change {
 			caret()
 		}

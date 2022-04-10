@@ -45,7 +45,7 @@ func (a *ServiceObject) CheckPerms() bool {
 	stat, _ := os.Stat(a.Path)
 	if stat.Mode() != a.Mode {
 		if config.outputEnabled {
-			fmt.Printf("Permissions for %s have been modified. Restoring...\n", a.Name)
+			fmt.Printf("\nPermissions for %s have been modified. Restoring...\n", a.Name)
 		}
 		return false
 	}
