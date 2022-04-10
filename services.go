@@ -188,8 +188,14 @@ func (a *ServiceObject) GetSHA() (string, bool) {
 	return ret, false
 }
 
+func (a *ServiceObject) FreeBackup() {
+	filename := GetConfigName(a.Path)
+	if FileExists(filename) {
+		os.Remove(filename)
+	}
+}
+
 func (a *ServiceObject) InitBackup() {
-	// TODO add owner
 	filename := GetConfigName(a.Path)
 	var path string = a.Path
 	doEncrypt := false

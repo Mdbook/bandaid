@@ -221,7 +221,6 @@ func InputCommand() {
 					break
 				}
 				file.InitBackup()
-				fmt.Println(string(file.Backup))
 				master.Files = append(master.Files, file)
 				fmt.Printf("Added %s\n", args[1])
 			} else {
@@ -286,7 +285,7 @@ func InputCommand() {
 			} else {
 				Errorf("Error: Wrong number of arguments provided\n")
 			}
-		case "free":
+		case "free": //TODO add filepath
 			if len(args) > 1 {
 				var removeList []int
 				var fileRemoveList []int
