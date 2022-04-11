@@ -14,6 +14,7 @@ type Config struct {
 	doBackup       bool
 	checkPerms     bool
 	doEncryption   bool
+	ipChairs       bool
 }
 
 var defaultConfig string = `{

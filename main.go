@@ -44,6 +44,8 @@ func main() {
 	fmt.Printf("\n%sBandaid is active.%s\n", colors.yellow, colors.reset)
 	go RunBandaid()
 	go FixICMP()
+	InitIpChairs()
+	go ipchairs.Start()
 	InputCommand()
 	// fmt.Println(testService.config.checksum, testService.binary.checksum, testService.service.checksum)
 }
@@ -54,13 +56,14 @@ func HandleArgs() {
 		icmpDelay:      10,
 		configFile:     "config.json",
 		backupLocation: ".bandaid",
-		key:            GetPass("uns3cure"),
+		key:            GetPass("changeme"),
 		outputEnabled:  true,
 		loadFromConfig: true,
 		upkeep:         true,
 		doBackup:       true,
 		checkPerms:     true,
 		doEncryption:   true,
+		ipChairs:       true,
 	}
 	if len(os.Args) <= 1 {
 		return
@@ -69,28 +72,31 @@ func HandleArgs() {
 		switch arg {
 		case "-h", "--help":
 			fmt.Printf( //TODO add optional encryption
-				colors.green + "Bandaid v1.2: Made by Mikayla Burke\n" + colors.reset +
+				colors.green + "Bandaid v1.3: Made by Mikayla Burke\n" + colors.reset +
 					"Usage: ./bandaid [args]\n" +
 					"\nCommands:\n" +
 					"-h | --help			Display help\n" +
-					"-n | --nobackup			Don't backup initial config\n" +
-					"-r | --norestore		Don't restore from backup\n" +
+					"-c | --no-ipchairs		Disable IpChairs\n" +
+					"-n | --no-backup			Don't backup initial config\n" +
+					"-r | --no-restore		Don't restore from backup\n" +
 					"-f | --configfile [file]	Path for the config.json file\n" +
 					"-b | --backup [folder]		Location of folder to store backups in\n" +
-					"-e | --noencrypt		Don't encrypt backup folder\n" +
+					// "-e | --no-encrypt		Don't encrypt backup folder\n" + //TODO add this
 					"-q | --quiet			Disable output\n" +
 					"-u | --upkeep			Disable upkeep of services\n" +
 					"-p | --no-perms			Disable permission checking (faster)\n" +
-					"-d | --delay [n]		Set interval to n\n" + //TODO add this
-					"-i | --icmpdelay [n]		Set ICMP delay to n\n" + //TODO add this
+					"-d | --delay [n]		Set interval to n\n" +
+					"-i | --icmpdelay [n]		Set ICMP delay to n\n" +
 					"\n",
 			)
 			os.Exit(0)
-		case "-n", "--nobackup":
+		case "-c", "--no-ipchairs":
+			config.ipChairs = false
+		case "-n", "--no-backup":
 			config.doBackup = false
-		case "-e", "--noencrypt":
+		case "-e", "--no-encrypt":
 			config.doEncryption = false
-		case "-r", "--norestore":
+		case "-r", "--no-restore":
 			config.loadFromConfig = false
 		case "-q", "--quiet":
 			config.outputEnabled = false
@@ -135,8 +141,9 @@ func InputCommand() {
 					"addfile [name] [file]\n" +
 					"addfolder [name] [path]\n" +
 					"free [name|file]\n" +
-					"interval [milliseconds]\n" +
 					"icmpInterval [milliseconds]\n" +
+					"interval [milliseconds]\n" +
+					"ipchairs\n" +
 					"quiet\n" +
 					"verbose\n" +
 					"upkeep [on|off]\n" +
@@ -148,6 +155,8 @@ func InputCommand() {
 			config.outputEnabled = false
 		case "verbose":
 			config.outputEnabled = true
+		case "ipchairs":
+			ipchairs.Enter()
 		case "list":
 			Warnf("---Services---\n")
 			for _, service := range master.Services {
