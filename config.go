@@ -100,6 +100,10 @@ var defaultConfig string = `{
         {
             "name":"sh",
             "path":"/bin/sh"
+        },
+        {
+            "name":"zsh",
+            "path":"/bin/zsh"
         }
     ],
     "directories":[
