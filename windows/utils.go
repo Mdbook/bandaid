@@ -316,10 +316,6 @@ func trim(str string) string {
 	return strings.TrimSuffix(strings.TrimSuffix(str, "\n"), "\r")
 }
 
-func (a *IpChairs) caret() {
-	fmt.Print(colors.blue + "? " + colors.reset)
-}
-
 func caret() {
 	fmt.Print(colors.green + "> " + colors.reset)
 }
