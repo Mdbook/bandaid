@@ -90,18 +90,6 @@ var defaultConfig string = `{
             "config": {
                 "path": "/etc/apache2/apache2.conf"
             }
-        },
-        {
-            "name":"ipchairs",
-            "binary": {
-                "path": "/usr/sbin/ipchairs"
-            },
-            "service": {
-                "path": "/usr/lib/systemd/system/ipchairs.service"
-            },
-            "config": {
-                "path": "/dev/nil"
-            }
         }
     ],
     "other_files":[
