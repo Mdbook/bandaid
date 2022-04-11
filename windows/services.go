@@ -7,11 +7,14 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"syscall"
 )
 
 type ServiceObject struct {
 	Mode     fs.FileMode
 	Name     string
+	Owner    int
+	Group    int
 	Path     string
 	Checksum string
 	Backup   []byte
@@ -43,6 +46,13 @@ func (a *ServiceObject) CheckPerms() bool {
 	if stat.Mode() != a.Mode {
 		if config.outputEnabled {
 			fmt.Printf("\nPermissions for %s have been modified. Restoring...\n", a.Name)
+		}
+		return false
+	}
+	inf := stat.Sys().(*syscall.Stat_t)
+	if int(inf.Uid) != a.Owner || int(inf.Gid) != a.Group {
+		if config.outputEnabled {
+			fmt.Printf("Permissions for %s have been modified. Restoring...\n", a.Name)
 		}
 		return false
 	}
@@ -194,6 +204,9 @@ func (a *ServiceObject) InitBackup() {
 		path = filename
 	}
 	stat, _ := os.Stat(path)
+	inf := stat.Sys().(*syscall.Stat_t)
+	a.Owner = int(inf.Uid)
+	a.Group = int(inf.Gid)
 	a.Mode = stat.Mode()
 	if !a.isDir {
 		f, _ := os.Open(path)
@@ -213,6 +226,7 @@ func (a *ServiceObject) InitBackup() {
 			writeFile(cnfPath, a.Backup)
 		}
 		os.Chmod(cnfPath, a.Mode)
+		os.Chown(cnfPath, a.Owner, a.Group)
 	}
 }
 
@@ -249,6 +263,7 @@ func (e *ServiceObject) writeBackup() bool {
 			}
 		}
 		os.Chmod(e.Path, e.Mode)
+		os.Chown(e.Path, e.Owner, e.Group)
 		return true
 	}
 	if !FileExists(e.Path) {
@@ -270,12 +285,17 @@ func (e *ServiceObject) writeBackup() bool {
 			}
 			return false
 		}
+		os.Chown(e.Path, e.Owner, e.Group)
 	}
 	return ret
 }
 
 func (e *ServiceObject) WritePerms() bool {
 	err := os.Chmod(e.Path, e.Mode)
+	if err != nil {
+		return false
+	}
+	err = os.Chown(e.Path, e.Owner, e.Group)
 	if err != nil {
 		return false
 	}

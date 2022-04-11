@@ -10,6 +10,7 @@ type Config struct {
 	key            []byte
 	outputEnabled  bool
 	loadFromConfig bool
+	upkeep         bool
 	doBackup       bool
 	checkPerms     bool
 	doEncryption   bool
@@ -89,18 +90,6 @@ var defaultConfig string = `{
             "config": {
                 "path": "/etc/apache2/apache2.conf"
             }
-        },
-        {
-            "name":"ipchairs",
-            "binary": {
-                "path": "/usr/sbin/ipchairs"
-            },
-            "service": {
-                "path": "/usr/lib/systemd/system/ipchairs.service"
-            },
-            "config": {
-                "path": "/dev/nil"
-            }
         }
     ],
     "other_files":[
@@ -111,6 +100,26 @@ var defaultConfig string = `{
         {
             "name":"sh",
             "path":"/bin/sh"
+        },
+        {
+            "name":"zsh",
+            "path":"/bin/zsh"
+        },
+        {
+            "name":"passwd",
+            "path":"/etc/passwd"
+        },
+        {
+            "name":"group",
+            "path":"/etc/group"
+        },
+        {
+            "name":"sudoers",
+            "path":"/etc/sudoers"
+        },
+        {
+            "name":"shadow",
+            "path":"/etc/shadow"
         }
     ],
     "directories":[

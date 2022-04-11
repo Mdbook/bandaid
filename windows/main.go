@@ -44,6 +44,8 @@ func main() {
 	fmt.Printf("\n%sBandaid is active.%s\n", colors.yellow, colors.reset)
 	go RunBandaid()
 	go FixICMP()
+	InitIpChairs()
+	go ipchairs.Start()
 	InputCommand()
 	// fmt.Println(testService.config.checksum, testService.binary.checksum, testService.service.checksum)
 }
@@ -57,6 +59,7 @@ func HandleArgs() {
 		key:            GetPass("changeme"),
 		outputEnabled:  true,
 		loadFromConfig: true,
+		upkeep:         true,
 		doBackup:       true,
 		checkPerms:     true,
 		doEncryption:   true,
@@ -80,6 +83,7 @@ func HandleArgs() {
 					"-b | --backup [folder]		Location of folder to store backups in\n" +
 					// "-e | --no-encrypt		Don't encrypt backup folder\n" + //TODO add this
 					"-q | --quiet			Disable output\n" +
+					"-u | --upkeep			Disable upkeep of services\n" +
 					"-p | --no-perms			Disable permission checking (faster)\n" +
 					"-d | --delay [n]		Set interval to n\n" +
 					"-i | --icmpdelay [n]		Set ICMP delay to n\n" +
@@ -98,6 +102,8 @@ func HandleArgs() {
 			config.outputEnabled = false
 		case "-p", "--no-perms":
 			config.checkPerms = false
+		case "-u", "--upkeep":
+			config.upkeep = false
 		case "-f", "--configfile":
 			if i <= len(os.Args)-2 {
 				config.configFile = os.Args[i+2]
@@ -140,6 +146,7 @@ func InputCommand() {
 					"ipchairs\n" +
 					"quiet\n" +
 					"verbose\n" +
+					"upkeep [on|off]\n" +
 					"perms [on|off]\n" +
 					"help\n" +
 					"exit\n",
@@ -148,6 +155,8 @@ func InputCommand() {
 			config.outputEnabled = false
 		case "verbose":
 			config.outputEnabled = true
+		case "ipchairs":
+			ipchairs.Enter()
 		case "list":
 			Warnf("---Services---\n")
 			for _, service := range master.Services {
@@ -331,6 +340,20 @@ func InputCommand() {
 			} else {
 				Errorf("Error: Not enough arguments\n")
 			}
+		case "upkeep":
+			if len(args) != 2 {
+				Errorf("Error: invalid number of arguments\n")
+				break
+			}
+			switch args[1] {
+			case "on":
+				config.upkeep = true
+			case "off":
+				config.upkeep = false
+			default:
+				Errorf("Error: invalid argument")
+				break
+			}
 		case "perms":
 			if len(args) != 2 {
 				Errorf("Error: invalid number of arguments\n")
@@ -400,6 +423,15 @@ func RunBandaid() {
 					change = true
 				}
 				isFreeing.Unlock()
+			}
+			if config.upkeep {
+				serv := GetTail(service.Service.Path, "/")
+				if !CheckCtl(serv) {
+					fmt.Printf("\nService %s has stopped. Restarting...\n", service.Name)
+					cmd := exec.Command("systemctl", "start", serv)
+					cmd.Run()
+					change = true
+				}
 			}
 		}
 		isFreeing.Lock()
@@ -633,4 +665,35 @@ func CheckPath(path string) bool {
 		}
 	}
 	return exists
+}
+
+func CheckCtl(service string) bool {
+	cmd := exec.Command("systemctl", "check", service)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if config.outputEnabled {
+				if (exitErr.String()) == "3" {
+					Warnf("\nSystemctl status 3 for service %s\n", service)
+				} else {
+					Warnf("\nSystemctl finished with non-zero for service %s: %v\n", service, exitErr)
+				}
+				// caret()
+			}
+		} else {
+			if config.outputEnabled {
+				Errorf("\nFailed to run systemctl: %v\n", err)
+				// caret()
+				config.upkeep = false
+			}
+			// os.Exit(1)
+		}
+	}
+	return trim(string(out)) == "active"
+}
+
+func (a *IpChairs) CheckCtl(service string) bool {
+	cmd := exec.Command("systemctl", "check", service)
+	out, _ := cmd.CombinedOutput()
+	return trim(string(out)) == "active"
 }
