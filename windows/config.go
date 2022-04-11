@@ -10,7 +10,6 @@ type Config struct {
 	key            []byte
 	outputEnabled  bool
 	loadFromConfig bool
-	upkeep         bool
 	doBackup       bool
 	checkPerms     bool
 	doEncryption   bool

@@ -292,6 +292,14 @@ func FileExists(path string) bool {
 	return false
 }
 
+func BackupExists(path string) bool {
+	path = GetConfigName(path)
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+	return false
+}
+
 func Reverse(s string) string {
 	runes := []rune(s)
 	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
@@ -307,10 +315,6 @@ func GetTail(str string, separator string) string {
 
 func trim(str string) string {
 	return strings.TrimSuffix(strings.TrimSuffix(str, "\n"), "\r")
-}
-
-func (a *IpChairs) caret() {
-	fmt.Print(colors.blue + "? " + colors.reset)
 }
 
 func caret() {
