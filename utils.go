@@ -291,6 +291,13 @@ func FileExists(path string) bool {
 	}
 	return false
 }
+func BackupExists(path string) bool {
+	path = GetConfigName(path)
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+	return false
+}
 
 func Reverse(s string) string {
 	runes := []rune(s)

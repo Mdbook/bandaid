@@ -216,7 +216,7 @@ func InputCommand() {
 			}
 		case "addfile":
 			if len(args) == 3 {
-				if !FileExists(args[2]) {
+				if !FileExists(args[2]) && !BackupExists(args[2]) {
 					Errorf("%s: file not found\n", args[2])
 					break
 				}
@@ -689,5 +689,11 @@ func CheckCtl(service string) bool {
 			// os.Exit(1)
 		}
 	}
+	return trim(string(out)) == "active"
+}
+
+func (a *IpChairs) CheckCtl(service string) bool {
+	cmd := exec.Command("systemctl", "check", service)
+	out, _ := cmd.CombinedOutput()
 	return trim(string(out)) == "active"
 }

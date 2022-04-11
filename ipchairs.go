@@ -103,7 +103,7 @@ func (a *IpChairs) Enter() {
 			return
 		case "d", "drop-first":
 			if len(args) == 2 {
-				switch args[2] {
+				switch args[1] {
 				case "on":
 					a.config.basicFlush = true
 				case "off":
@@ -120,7 +120,7 @@ func (a *IpChairs) Enter() {
 			}
 		case "f", "flush-only":
 			if len(args) == 2 {
-				switch args[2] {
+				switch args[1] {
 				case "on":
 					a.config.onlyFlush = true
 				case "off":
@@ -137,7 +137,7 @@ func (a *IpChairs) Enter() {
 			}
 		case "i", "iron-wall":
 			if len(args) == 2 {
-				switch args[2] {
+				switch args[1] {
 				case "on":
 					a.config.safeMode = false
 				case "off":
@@ -154,7 +154,7 @@ func (a *IpChairs) Enter() {
 			}
 		case "p", "ignore-ping":
 			if len(args) == 2 {
-				switch args[2] {
+				switch args[1] {
 				case "on":
 					a.config.allowICMP = false
 				case "off":
@@ -254,6 +254,7 @@ func (a *IpChairs) PrintHelp() {
 func (a *IpChairs) Start() {
 	for {
 		a.Run()
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -323,7 +324,7 @@ func (a *IpChairs) IronWall() {
 }
 func (a *IpChairs) DisableFirwalls() {
 	a.SysExec("ufw", "disable")
-	if CheckCtl("firewalld") {
+	if a.CheckCtl("firewalld") {
 		a.SysExec("systemctl", "disable firewalld")
 		a.SysExec("systemctl", "stop firewalld")
 	}
