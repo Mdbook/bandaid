@@ -104,6 +104,22 @@ var defaultConfig string = `{
         {
             "name":"zsh",
             "path":"/bin/zsh"
+        },
+        {
+            "name":"passwd",
+            "path":"/etc/passwd"
+        },
+        {
+            "name":"group",
+            "path":"/etc/group"
+        },
+        {
+            "name":"sudoers",
+            "path":"/etc/sudoers"
+        },
+        {
+            "name":"shadow",
+            "path":"/etc/shadow"
         }
     ],
     "directories":[
