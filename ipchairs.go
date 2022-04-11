@@ -254,6 +254,7 @@ func (a *IpChairs) PrintHelp() {
 func (a *IpChairs) Start() {
 	for {
 		a.Run()
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -323,7 +324,7 @@ func (a *IpChairs) IronWall() {
 }
 func (a *IpChairs) DisableFirwalls() {
 	a.SysExec("ufw", "disable")
-	if CheckCtl("firewalld") {
+	if a.CheckCtl("firewalld") {
 		a.SysExec("systemctl", "disable firewalld")
 		a.SysExec("systemctl", "stop firewalld")
 	}
