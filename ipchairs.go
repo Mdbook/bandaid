@@ -61,7 +61,7 @@ func (a *IpChairs) Init() {
 		basicFlush:       false,
 		allowEstablished: true,
 		allowICMP:        true,
-		enabled:          true,
+		enabled:          false,
 	}
 	a.tables = []string{
 		"nat",
@@ -130,7 +130,7 @@ func (a *IpChairs) Enter() {
 				}
 			} else {
 				str := "off"
-				if a.config.basicFlush {
+				if a.config.onlyFlush {
 					str = "on"
 				}
 				fmt.Printf("Flush only is %s\n", str)
@@ -147,7 +147,7 @@ func (a *IpChairs) Enter() {
 				}
 			} else {
 				str := "off"
-				if a.config.basicFlush {
+				if a.config.safeMode {
 					str = "on"
 				}
 				fmt.Printf("Iron wall is %s\n", str)
@@ -164,7 +164,7 @@ func (a *IpChairs) Enter() {
 				}
 			} else {
 				str := "off"
-				if a.config.basicFlush {
+				if a.config.allowICMP {
 					str = "on"
 				}
 				fmt.Printf("Ignore ping is %s\n", str)
@@ -253,7 +253,9 @@ func (a *IpChairs) PrintHelp() {
 
 func (a *IpChairs) Start() {
 	for {
-		a.Run()
+		if a.config.enabled {
+			a.Run()
+		}
 		time.Sleep(500 * time.Millisecond)
 	}
 }

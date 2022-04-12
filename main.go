@@ -41,6 +41,7 @@ func main() {
 	InitBackups()
 	fmt.Println()
 	PrintChecksums()
+	Warnf("\nIpChairs is disabled by default. Run the ipchairs command to configure.\n")
 	fmt.Printf("\n%sBandaid is active.%s\n", colors.yellow, colors.reset)
 	go RunBandaid()
 	go FixICMP()
