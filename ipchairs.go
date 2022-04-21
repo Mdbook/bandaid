@@ -1,3 +1,9 @@
+/*
+IpChairs- Made by Mikayla Burke
+Module for bandaid to constantly set iptables rules to allow
+certain ports and remove all other rules and chains.
+*/
+
 package main
 
 import (
@@ -10,46 +16,48 @@ import (
 	"time"
 )
 
+// Global ipchairs object
 var ipchairs IpChairs
 
+type IpChairs struct {
+	tcp         []string  // Array of tcp ports to allow
+	udp         []string  // Array of udp ports to allow
+	tables      []string  // List of tables (filter, mangle, nat)
+	flushtables []string  // List of tables to be used in flushing (filter, mangle, nat, raw)
+	chains      IpChains  // IpChains object
+	config      *IpConfig // IpConfig object
+	// locations   []IpChains
+}
+
 type IpConfig struct {
-	demo             bool
-	safeMode         bool
-	onlyFlush        bool
-	disableFirewalls bool
-	flushAllAllow    bool
-	preDrop          bool
-	preKill          bool
-	basicFlush       bool
-	allowEstablished bool
-	allowICMP        bool
-	enabled          bool
+	demo             bool // Setting this to true disables actually changing the rules. Used for debugging.
+	safeMode         bool // Toggle IronWall on or off. More details on IronWall below
+	onlyFlush        bool // Completely flush rules every iteration and don't create new ones
+	disableFirewalls bool // Disable firewalld and ufw every iteration
+	flushAllAllow    bool // Whether or not ipchairs should flush all existing rules before establishing rules
+	preDrop          bool // Set all chains default policy to DROP first, then reset if safemode is on.
+	preKill          bool // Attempt to drop all connections before establishing rules. Doesn't work very well. Don't use this.
+	basicFlush       bool // Only use iptables -F to flush
+	allowEstablished bool // Allow established/related connections
+	allowICMP        bool // Allow ICMP in and out
+	enabled          bool // Enable/disable ipchairs
 }
 
 type IpChains struct {
-	nat    []string
-	mangle []string
-	filter []string
-	raw    []string
-	none   []string
+	nat    []string // List of chains in the nat table
+	mangle []string // List of chains in the mangle table
+	filter []string // List of chains in the filter table
+	raw    []string // List of chains in the raw table
 }
 
-type IpChairs struct {
-	tcp         []string
-	udp         []string
-	tables      []string
-	flushtables []string
-	locations   []IpChains
-	chains      IpChains
-	config      *IpConfig
-}
-
+// Initialize the global variable and run the init script
 func InitIpChairs() {
 	ipchairs = IpChairs{}
 	ipchairs.Init()
 }
 
 func (a *IpChairs) Init() {
+	//Initialize default config
 	a.config = &IpConfig{
 		demo:             false,
 		safeMode:         true,
@@ -74,28 +82,33 @@ func (a *IpChairs) Init() {
 		"filter",
 		"raw",
 	}
+	a.tcp = []string{
+		"22",
+		"80",
+	}
+	//No UDP allowed by default
+	a.udp = []string{}
+	// Define valid chains for each table
 	a.chains = IpChains{
 		nat:    []string{"PREROUTING", "POSTROUTING", "INPUT", "OUTPUT"},
 		mangle: []string{"PREROUTING", "POSTROUTING", "INPUT", "OUTPUT", "FORWARD"},
 		filter: []string{"INPUT", "OUTPUT", "FORWARD"},
 		raw:    []string{"PREROUTING", "OUTPUT"},
-		none:   []string{"INPUT", "OUTPUT", "FORWARD"},
 	}
-	a.tcp = []string{
-		"22",
-		"80",
-	}
-	a.udp = []string{}
 }
 
+// Enter the ipchairs menu
 func (a *IpChairs) Enter() {
 	a.PrintHelp()
 	a.caret()
 	for {
+		//Read command
 		reader := bufio.NewReader(os.Stdin)
 		rawCmd, _ := reader.ReadString('\n')
+		//Trim any newline characters. Not super necessary but better safe than sorry
 		cmd := trim(rawCmd)
 		args := strings.Split(cmd, " ")
+		// Handle commands
 		switch args[0] {
 		case "help":
 			a.PrintHelp()
@@ -260,9 +273,9 @@ func (a *IpChairs) Start() {
 	}
 }
 
-func (a *IpChairs) Run() {
+func (a *IpChairs) Run() { // Run ipchairs
 	if a.config.disableFirewalls {
-		a.DisableFirwalls()
+		a.DisableFirewalls()
 	}
 	if a.config.flushAllAllow {
 		a.FlushallAllow()
@@ -280,51 +293,71 @@ func (a *IpChairs) Run() {
 }
 
 func (a *IpChairs) SafeMode() {
+	// Parse TCP and UDP strings so they can be put directly into the command
 	tcp := strings.Join(a.tcp, ",")
 	udp := strings.Join(a.udp, ",")
+	// Cycle through all tables and chains
 	for _, table := range a.tables {
 		curChain := a.chains.Get(table)
 		for _, chain := range curChain {
-			a.Exec("-t " + table + " -A " + chain + " -m state --state ESTABLISHED,RELATED -j ACCEPT")
+			// a.Exec("-t " + table + " -A " + chain + " -m state --state ESTABLISHED,RELATED -j ACCEPT")
 			if a.config.allowEstablished {
+				// Allow established connections first
 				a.Exec("-t " + table + " -A " + chain + " -m state --state ESTABLISHED,RELATED -j ACCEPT")
 			}
 			if tcp != "" {
+				//Only allow specified tcp ports
 				a.Exec("-t " + table + " -A " + chain + " -p tcp -m tcp -m multiport ! --dports " + tcp + " -j DROP")
 			}
 			if udp != "" {
+				// Only allow specified udp ports
 				a.Exec("-t " + table + " -A " + chain + " -p udp -m udp -m multiport ! --dports " + udp + " -j DROP")
 			}
 			if !a.config.allowICMP {
+				// Disallow ICMP connections if the option is enabled
 				a.Exec("-t " + table + " -A " + chain + " -p icmp -j DROP")
 			}
 		}
 	}
 }
 
+/*
+Iron wall mode sets the default policy to DROP for all tables and chains,
+and then only allows certain connections. This is technically a little more
+secure but is NOT recommended for cloud boxes.
+*/
 func (a *IpChairs) IronWall() {
+	// Parse TCP and UDP strings so they can be put directly into the command
 	tcp := strings.Join(a.tcp, ",")
 	udp := strings.Join(a.udp, ",")
+	// Cycle through all tables and chains
 	for _, table := range a.tables {
 		curChain := a.chains.Get(table)
 		for _, chain := range curChain {
 			if tcp != "" {
+				// Only allow specified tcp ports
 				a.Exec("-t " + table + " -A " + chain + " -p tcp -m tcp -m multiport --dports " + tcp + " -j ACCEPT")
 			}
 			if udp != "" {
+				// Only allow specified udp ports
 				a.Exec("-t " + table + " -A " + chain + " -p udp -m udp -m multiport --dports " + udp + " -j ACCEPT")
 			}
 			if a.config.allowEstablished {
+				// Allow established connections first
 				a.Exec("-t " + table + " -A " + chain + " -m state --state ESTABLISHED,RELATED -j ACCEPT")
 			}
 			if a.config.allowICMP {
+				// Allow ICMP connections if the option is enabled
 				a.Exec("-t " + table + " -A " + chain + " -p icmp --icmp-type echo-request -j ACCEPT")
 			}
+			// Set the default policy to drop
 			a.Exec("-t " + table + " -P " + chain + " DROP")
 		}
 	}
 }
-func (a *IpChairs) DisableFirwalls() {
+
+// Disable ufw and firewalld
+func (a *IpChairs) DisableFirewalls() {
 	a.SysExec("ufw", "disable")
 	if a.CheckCtl("firewalld") {
 		a.SysExec("systemctl", "disable firewalld")
@@ -332,6 +365,7 @@ func (a *IpChairs) DisableFirwalls() {
 	}
 }
 
+// Set firewall policy to drop first, if enabled
 func (a *IpChairs) PreDrop() {
 	for _, table := range a.flushtables {
 		curChain := a.chains.Get(table)
@@ -342,20 +376,28 @@ func (a *IpChairs) PreDrop() {
 	time.Sleep(1 * time.Second)
 }
 
+// Flush all rules before establishing
 func (a *IpChairs) FlushallAllow() {
 	if !a.config.basicFlush {
+		// Iterate through all tables
 		for _, table := range a.flushtables {
+			// Zero the packet and byte counters in all chains
 			a.Exec("-Z -t " + table)
+			// Flush rules in all chains
 			a.Exec("-F -t " + table)
+			// Delete all chains except default
 			a.Exec("-X -t " + table)
 		}
 	} else {
+		// Iterate through all tables
 		for _, table := range a.flushtables {
+			// If basic flush is enabled, only flush rules
 			a.Exec("-F -t " + table)
 		}
 	}
 }
 
+// Helper function since you can't call IpChains["foo"] in golang
 func (a *IpChains) Get(field string) []string {
 	switch field {
 	case "nat":
@@ -366,12 +408,11 @@ func (a *IpChains) Get(field string) []string {
 		return a.filter
 	case "raw":
 		return a.raw
-	case "none":
-		return a.none
 	}
 	return nil
 }
 
+// Execute a system command
 func (a *IpChairs) SysExec(binary string, command string) {
 	args := strings.Split(command, " ")
 	if a.config.demo {
@@ -382,6 +423,7 @@ func (a *IpChairs) SysExec(binary string, command string) {
 	cmd.Run()
 }
 
+// Execute an iptables command
 func (a *IpChairs) Exec(command string) {
 	args := strings.Split(command, " ")
 	if a.config.demo {

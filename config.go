@@ -2,6 +2,7 @@ package main
 
 import "time"
 
+// Define the config struct
 type Config struct {
 	delay          time.Duration
 	icmpDelay      time.Duration
@@ -17,6 +18,7 @@ type Config struct {
 	ipChairs       bool
 }
 
+// Default config. This can be exported into a .json file and modified as needed.
 var defaultConfig string = `{
     "services": [
         {
