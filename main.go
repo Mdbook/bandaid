@@ -1,3 +1,10 @@
+/*
+Bandaid: Made by Mikayla Burke
+Routinely checks all files and folders added in config
+for modifications, and reverts them to their previous
+state if they have been modified in any way.
+*/
+
 package main
 
 import (
@@ -14,6 +21,7 @@ import (
 	"time"
 )
 
+// Initialize global variables
 // var services []*Service
 var master Services
 var serviceNames []string = []string{
@@ -26,32 +34,40 @@ var colors Colors = InitColors()
 var config Config
 
 func main() {
-	// err := syscall.Setuid(0)
-	// if err != nil {
-	// 	Errorf("Error: must be run as root\n")
-	// 	os.Exit(-1)
-	// }
+	/*
+		For linux, we can use syscall to detect if
+		user is root. This is no longer needed
+		because of the creation of /dev/nil at
+		the CreateNil() function.
+			err := syscall.Setuid(0)
+			if err != nil {
+				Errorf("Error: must be run as root\n")
+				os.Exit(-1)
+			}
+	*/
 	HandleArgs()
 	CreateNil()
 	InitConfigFolder()
-	// TODO XOR the binary files
-	// TODO base26 the plaintext files
-	// TODO base64/26 encode all filepaths
+	// TODO encrypt the files stored in memory as well
 	master = InitConfig()
 	InitBackups()
 	fmt.Println()
 	PrintChecksums()
 	Warnf("\nIpChairs is disabled by default. Run the ipchairs command to configure.\n")
 	fmt.Printf("\n%sBandaid is active.%s\n", colors.yellow, colors.reset)
+	// Start the main process
 	go RunBandaid()
+	// Fixing ICMP is its own function since it has its own delay
 	go FixICMP()
+	// Initialize the IpChairs object and run it
 	InitIpChairs()
 	go ipchairs.Start()
 	InputCommand()
-	// fmt.Println(testService.config.checksum, testService.binary.checksum, testService.service.checksum)
 }
 
+// Function to establish config and handle user arguments
 func HandleArgs() {
+	// Initialize default config
 	config = Config{
 		delay:          1000,
 		icmpDelay:      10,
@@ -66,6 +82,7 @@ func HandleArgs() {
 		doEncryption:   true,
 		ipChairs:       true,
 	}
+	// If there are no command line arguments, we return after setting the default config
 	if len(os.Args) <= 1 {
 		return
 	}
@@ -123,6 +140,7 @@ func HandleArgs() {
 	}
 }
 
+// Main function to handle user input
 func InputCommand() {
 	caret()
 	for {
