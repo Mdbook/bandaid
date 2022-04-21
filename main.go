@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-var services []*Service
+// var services []*Service
 var master Services
 var serviceNames []string = []string{
 	"Binary",
@@ -353,7 +353,6 @@ func InputCommand() {
 				config.upkeep = false
 			default:
 				Errorf("Error: invalid argument")
-				break
 			}
 		case "perms":
 			if len(args) != 2 {
@@ -367,10 +366,8 @@ func InputCommand() {
 				config.checkPerms = false
 			default:
 				Errorf("Error: invalid argument")
-				break
 			}
 		case "":
-			break
 		default:
 			Errorf("Unknown command\n")
 		}
@@ -533,7 +530,6 @@ func InitBackups() {
 
 func InitConfig() Services {
 	configFile, err := os.Open(config.configFile)
-	defer configFile.Close()
 	var configBytes []byte
 	if err != nil {
 		Errorf("Could not load config file. Load default config? [y/n]: ")
@@ -544,6 +540,7 @@ func InitConfig() Services {
 		}
 	} else {
 		configBytes, _ = ioutil.ReadAll(configFile)
+		defer configFile.Close()
 	}
 	var names []string
 	var master Services
@@ -610,18 +607,18 @@ func InitConfig() Services {
 func CreateNil() {
 	if runtime.GOOS == "windows" {
 		f, err := os.Create("C:\\nil")
-		defer f.Close()
 		if err != nil {
 			Errorf("Could not create C:\\nil. Are you running as administrator?\n")
 			os.Exit(-1)
 		}
+		defer f.Close()
 	} else if runtime.GOOS == "linux" {
 		f, err := os.Create("/dev/nil")
-		defer f.Close()
 		if err != nil {
 			Errorf("Could not create /dev/nil. Are you root?\n")
 			os.Exit(-1)
 		}
+		defer f.Close()
 	}
 
 }
