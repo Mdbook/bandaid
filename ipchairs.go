@@ -183,6 +183,7 @@ func (a *IpChairs) Enter() {
 				fmt.Printf("Ignore ping is %s\n", str)
 			}
 		case "enable":
+			// TODO make the enable/disable start and stop the goroutine
 			a.config.enabled = true
 		case "disable":
 			a.config.enabled = false
