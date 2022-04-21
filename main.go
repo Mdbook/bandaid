@@ -176,7 +176,6 @@ func InputCommand() {
 		case "verbose":
 			config.outputEnabled = true
 		case "ipchairs":
-			config.ipChairsConsole = true
 			ipchairs.Enter()
 		case "list":
 			Warnf("---Services---\n")

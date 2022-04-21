@@ -99,6 +99,7 @@ func (a *IpChairs) Init() {
 
 // Enter the ipchairs menu
 func (a *IpChairs) Enter() {
+	config.ipChairsConsole = true
 	a.PrintHelp()
 	a.caret()
 	for {

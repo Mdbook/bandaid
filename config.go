@@ -16,7 +16,7 @@ type Config struct {
 	checkPerms      bool // Toggle for checking permissions and attributes of files
 	doEncryption    bool
 	ipChairs        bool
-	ipChairsConsole bool
+	ipChairsConsole bool // Toggle ipChairsConsole. Used in utils caret() function
 }
 
 // Default config. This can be exported into a .json file and modified as needed.
