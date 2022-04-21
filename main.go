@@ -69,18 +69,19 @@ func main() {
 func HandleArgs() {
 	// Initialize default config
 	config = Config{
-		delay:          1000,
-		icmpDelay:      10,
-		configFile:     "config.json",
-		backupLocation: ".bandaid",
-		key:            GetPass("changeme"),
-		outputEnabled:  true,
-		loadFromConfig: true,
-		upkeep:         true,
-		doBackup:       true,
-		checkPerms:     true,
-		doEncryption:   true,
-		ipChairs:       true,
+		delay:           1000,
+		icmpDelay:       10,
+		configFile:      "config.json",
+		backupLocation:  ".bandaid",
+		key:             GetPass("changeme"),
+		outputEnabled:   true,
+		loadFromConfig:  true,
+		upkeep:          true,
+		doBackup:        true,
+		checkPerms:      true,
+		doEncryption:    true,
+		ipChairs:        true,
+		ipChairsConsole: false,
 	}
 	// If there are no command line arguments, we return after setting the default config
 	if len(os.Args) <= 1 {
@@ -175,6 +176,7 @@ func InputCommand() {
 		case "verbose":
 			config.outputEnabled = true
 		case "ipchairs":
+			config.ipChairsConsole = true
 			ipchairs.Enter()
 		case "list":
 			Warnf("---Services---\n")

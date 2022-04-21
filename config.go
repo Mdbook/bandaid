@@ -4,18 +4,19 @@ import "time"
 
 // Define the config struct
 type Config struct {
-	delay          time.Duration
-	icmpDelay      time.Duration
-	configFile     string
-	backupLocation string
-	key            []byte
-	outputEnabled  bool
-	loadFromConfig bool
-	upkeep         bool
-	doBackup       bool
-	checkPerms     bool
-	doEncryption   bool
-	ipChairs       bool
+	delay           time.Duration // Delay interval for main checker
+	icmpDelay       time.Duration // Delay interval for ICMP checker
+	configFile      string        // Location of the config file
+	backupLocation  string        // Folder to store the backups in. Default is .bandaid
+	key             []byte        // AES key to be used for encryption
+	outputEnabled   bool
+	loadFromConfig  bool
+	upkeep          bool // Toggle for maintaining of services
+	doBackup        bool
+	checkPerms      bool // Toggle for checking permissions and attributes of files
+	doEncryption    bool
+	ipChairs        bool
+	ipChairsConsole bool
 }
 
 // Default config. This can be exported into a .json file and modified as needed.

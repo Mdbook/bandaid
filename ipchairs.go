@@ -113,6 +113,7 @@ func (a *IpChairs) Enter() {
 		case "help":
 			a.PrintHelp()
 		case "exit":
+			config.ipChairsConsole = false
 			return
 		case "d", "drop-first":
 			if len(args) == 2 {

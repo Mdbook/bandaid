@@ -273,10 +273,7 @@ func writeFile(file string, contents []byte) bool {
 	}
 	defer f.Close()
 	_, err = f.Write(contents)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func readFile(path string) string {
@@ -321,7 +318,11 @@ func (a *IpChairs) caret() {
 }
 
 func caret() {
-	fmt.Print(colors.green + "> " + colors.reset)
+	if config.ipChairsConsole {
+		fmt.Print(colors.blue + "? " + colors.reset)
+	} else {
+		fmt.Print(colors.green + "> " + colors.reset)
+	}
 }
 
 func Warnf(s string, params ...interface{}) {
