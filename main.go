@@ -244,6 +244,7 @@ func InputCommand() {
 					Errorf("Error: %s already exists\n", args[1])
 					break
 				}
+				// Create the service object and initialize it
 				file := ServiceObject{
 					Name: args[1],
 					Path: args[2],
@@ -259,6 +260,7 @@ func InputCommand() {
 			}
 		case "addfolder":
 			if len(args) == 3 {
+				// Create the directory object and initialize it
 				newDir := Directory{
 					Name:        args[1],
 					Path:        args[2],
@@ -290,6 +292,8 @@ func InputCommand() {
 					Errorf("Error: %s already exists\n", args[1])
 					break
 				}
+				// Create a service object for binary, service, and path,
+				// then join them together with a Service
 				binary := ServiceObject{
 					Path: args[2],
 				}
@@ -306,6 +310,7 @@ func InputCommand() {
 					Config:  &config,
 				}
 				if !serv.Init() {
+					Errorf("Error: Couldn't initialize service\n")
 					break
 				}
 				for _, name := range serviceNames {
@@ -321,6 +326,9 @@ func InputCommand() {
 				var removeList []int
 				var fileRemoveList []int
 				var dirRemoveList []int
+				// Create a list for each type of object containing
+				// which objects should be removed, then remove
+				// them all at the end.
 				for _, arg := range args[1:] {
 					if CheckName(arg) {
 						for e, service := range master.Services {
@@ -394,6 +402,7 @@ func InputCommand() {
 	}
 }
 
+// Print the names and checksums of each service, directory, and file
 func PrintChecksums() {
 	Warnf("---Services---\n")
 	for _, service := range master.Services {
@@ -413,6 +422,7 @@ func PrintChecksums() {
 	}
 }
 
+// TODO continue here
 func RunBandaid() {
 	for {
 		change := false
