@@ -422,13 +422,16 @@ func PrintChecksums() {
 	}
 }
 
-// TODO continue here
+// Main run function for bandaid
 func RunBandaid() {
 	for {
+		// Keep a record of whether or not any changes were made
 		change := false
+		// Lock the mutex to make sure we don't read files while they're being freed
+		isFreeing.Lock()
 		for _, service := range master.Services {
 			for _, name := range serviceNames {
-				isFreeing.Lock()
+				// First check each file's checksum. This also checks for file deletions
 				if !service.getAttr(name).CheckFile() {
 					if config.outputEnabled {
 						fmt.Printf("\nError on checksum for %s %s. Rewriting...\n", service.Name, strings.ToLower(name))
@@ -441,6 +444,7 @@ func RunBandaid() {
 						service.getAttr(name).writeBackup()
 					}
 					change = true
+					// If the checksum was fine, also check the permissions (if enabled)
 				} else if !service.getAttr(name).CheckPerms() && config.checkPerms {
 					if service.getAttr(name).WritePerms() {
 						fmt.Println("Permissions restored.")
@@ -449,10 +453,11 @@ func RunBandaid() {
 					}
 					change = true
 				}
-				isFreeing.Unlock()
 			}
 			if config.upkeep {
+				// Get the service name using the path
 				serv := GetTail(service.Service.Path, "/")
+				// Check to see if the service is running; if not, restart
 				if !CheckCtl(serv) {
 					fmt.Printf("\nService %s has stopped. Restarting...\n", service.Name)
 					cmd := exec.Command("systemctl", "start", serv)
@@ -461,7 +466,8 @@ func RunBandaid() {
 				}
 			}
 		}
-		isFreeing.Lock()
+
+		// Next, check all files
 		for _, file := range master.Files {
 			if !file.CheckFile() {
 				if config.outputEnabled {
@@ -484,7 +490,11 @@ func RunBandaid() {
 				change = true
 			}
 		}
+
+		// Check every file in each directory (recursively)
 		for _, dir := range master.Directories {
+			// The Directory struct stores each file's path,
+			// so no need to do recursive iteration
 			for _, file := range dir.files {
 				if !file.CheckFile() {
 					if config.outputEnabled {
@@ -508,7 +518,10 @@ func RunBandaid() {
 				}
 			}
 		}
+		// Unlock the mutex
 		isFreeing.Unlock()
+		// If there was a change made, then we need to caret()
+		// because of the change output
 		if change {
 			caret()
 		}
@@ -516,9 +529,13 @@ func RunBandaid() {
 	}
 }
 
+// Function to check for the most common ICMP break
 func FixICMP() {
 	for {
+		// This only works for linux
+		// TODO: add a similar function for windows?
 		if runtime.GOOS == "linux" {
+			// If icmp_echo_ignore_all is not 0, set it back to 0
 			if trim(readFile("/proc/sys/net/ipv4/icmp_echo_ignore_all")) != "0" {
 				cmd := exec.Command("/bin/sh", "-c", "echo 0 > /proc/sys/net/ipv4/icmp_echo_ignore_all")
 				cmd.Run()
@@ -534,30 +551,21 @@ func FixICMP() {
 	}
 }
 
+// Initialize the backups for services and files.
+// Directories are handled in the InitConfig function
 func InitBackups() {
-	// os.Mkdir(".bandaid", os.ModePerm)
-	// os.Mkdir(".bandaid/backups", os.ModePerm)
 	for i := range master.Services {
 		for _, name := range serviceNames {
 			master.Services[i].getAttr(name).InitBackup()
-			// f, _ := os.Open(service.getAttr(name).Path)
-			// master.Services[i].getAttr(name).Backup, _ = ioutil.ReadAll(f)
-			// stat, _ := os.Stat(service.getAttr(name).Path)
-			// master.Services[i].getAttr(name).Mode = stat.Mode()
-			// f.Close()
 		}
 	}
 	for i := range master.Files {
 		master.Files[i].InitBackup()
-		// f, _ := os.Open(file.Path)
-		// master.Files[i].Backup, _ = ioutil.ReadAll(f)
-		// stat, _ := os.Stat(file.Path)
-		// master.Files[i].Mode = stat.Mode()
-		// f.Close()
 	}
 }
 
-func InitConfig() Services {
+// Initialize the global config
+func InitConfig() Services { // TODO continue here
 	configFile, err := os.Open(config.configFile)
 	var configBytes []byte
 	if err != nil {
