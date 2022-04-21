@@ -565,14 +565,18 @@ func InitBackups() {
 }
 
 // Initialize the global config
-func InitConfig() Services { // TODO continue here
+func InitConfig() Services {
 	configFile, err := os.Open(config.configFile)
 	var configBytes []byte
 	if err != nil {
+		// If we can't find the config file, load the default config
+		// from the config.go file, converting it into bytes
+		// so we can unmarshal it
 		Errorf("Could not load config file. Load default config? [y/n]: ")
 		if GetInput() == "y" {
 			configBytes = []byte(defaultConfig)
 		} else {
+			Errorf("No config found. Exiting...\n")
 			os.Exit(-1)
 		}
 	} else {
@@ -582,9 +586,11 @@ func InitConfig() Services { // TODO continue here
 	var names []string
 	var master Services
 	json.Unmarshal(configBytes, &master)
+	// Create a list of services, files and directories to not include
 	var removeList []int
 	var fileRemoveList []int
 	var dirRemoveList []int
+	// Initialize all services and add the ones that error to the removeList
 	for i := range master.Services {
 		if !master.Services[i].Init() {
 			removeList = append(removeList, i)
@@ -617,6 +623,8 @@ func InitConfig() Services { // TODO continue here
 			}
 		}
 	}
+
+	// Add all items that didn't error out to the global master struct
 	var newServices []Service
 	var newFiles []ServiceObject
 	var newDirs []Directory
@@ -641,6 +649,8 @@ func InitConfig() Services { // TODO continue here
 	return master
 }
 
+// Create a nil file, to be used if a service doesn't have a config/binary/etc file.
+// Located in C:\nil for windows and /dev/nil for linux.
 func CreateNil() {
 	if runtime.GOOS == "windows" {
 		f, err := os.Create("C:\\nil")
@@ -660,6 +670,7 @@ func CreateNil() {
 
 }
 
+// Check to see if a service/file/directory name already exists in the gloabl master
 func CheckName(name string) bool {
 	exists := false
 	for _, service := range master.Services {
@@ -682,6 +693,8 @@ func CheckName(name string) bool {
 	}
 	return exists
 }
+
+// Check to see if a file's path already exists in the global master
 func CheckPath(path string) bool {
 	exists := false
 	for _, service := range master.Services {
@@ -699,9 +712,11 @@ func CheckPath(path string) bool {
 			break
 		}
 	}
+	// TODO add directories as well
 	return exists
 }
 
+// Check to see if a linux service is currently running or not
 func CheckCtl(service string) bool {
 	cmd := exec.Command("systemctl", "check", service)
 	out, err := cmd.CombinedOutput()
@@ -718,15 +733,14 @@ func CheckCtl(service string) bool {
 		} else {
 			if config.outputEnabled {
 				Errorf("\nFailed to run systemctl: %v\n", err)
-				// caret()
 				config.upkeep = false
 			}
-			// os.Exit(1)
 		}
 	}
 	return trim(string(out)) == "active"
 }
 
+// CheckCtl but for IpChairs
 func (a *IpChairs) CheckCtl(service string) bool {
 	cmd := exec.Command("systemctl", "check", service)
 	out, _ := cmd.CombinedOutput()
