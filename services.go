@@ -1,3 +1,8 @@
+/*
+services.go- Contains mostly everything to do with
+service/file/directory objects
+*/
+
 package main
 
 import (
@@ -10,37 +15,40 @@ import (
 	"syscall"
 )
 
+// File object
 type ServiceObject struct {
-	Mode     fs.FileMode
+	Mode     fs.FileMode // File permissions
 	Name     string
-	Owner    int
-	Group    int
+	Owner    int // UID
+	Group    int // GID
 	Path     string
 	Checksum string
-	Backup   []byte
+	Backup   []byte // Contents of the file are stored in memory
 	isDir    bool
 }
 
 type Directory struct {
-	Name        string `json:"name"`
+	Name        string `json:"name"` // These tags are added let us use JSON unmarshal
 	Path        string
 	isRecursive bool
-	files       []*ServiceObject
+	files       []*ServiceObject // Store pointers instead of actual variables to aid with making changes
 }
 
 type Service struct {
-	Name      string `json:"name"`
-	locations []*ServiceObject
-	Binary    *ServiceObject `json:"binary"`
-	Service   *ServiceObject `json:"service"`
-	Config    *ServiceObject `json:"config"`
+	Name      string           `json:"name"`
+	locations []*ServiceObject // We store the objects in this array as well, to allow for easier iterating
+	Binary    *ServiceObject   `json:"binary"`
+	Service   *ServiceObject   `json:"service"`
+	Config    *ServiceObject   `json:"config"`
 }
+
 type Services struct {
 	Services    []Service       `json:"services"`
 	Files       []ServiceObject `json:"other_files"`
 	Directories []Directory     `json:"directories"`
 }
 
+// Check to see if the permissions for a file have been modified
 func (a *ServiceObject) CheckPerms() bool {
 	stat, _ := os.Stat(a.Path)
 	if stat.Mode() != a.Mode {
@@ -49,6 +57,7 @@ func (a *ServiceObject) CheckPerms() bool {
 		}
 		return false
 	}
+	// Also check uid and gid
 	inf := stat.Sys().(*syscall.Stat_t)
 	if int(inf.Uid) != a.Owner || int(inf.Gid) != a.Group {
 		if config.outputEnabled {
@@ -59,6 +68,7 @@ func (a *ServiceObject) CheckPerms() bool {
 	return true
 }
 
+// Check to see if file has been deleted or modified
 func (a *ServiceObject) CheckFile() bool {
 	if a.isDir {
 		if !FileExists(a.Path) {
@@ -66,6 +76,8 @@ func (a *ServiceObject) CheckFile() bool {
 		}
 		return true
 	}
+	// Get the SHA checksum of the file's current state
+	// and compare it to the one stored in memory
 	sha, err := a.GetSHA()
 	if err {
 		return false
@@ -78,16 +90,20 @@ func (a *ServiceObject) CheckFile() bool {
 
 func (a *Service) Init() bool {
 	var err bool
+	// Initialize the locations array
 	a.locations = []*ServiceObject{
 		a.Binary,
 		a.Service,
 		a.Config,
 	}
 	for _, location := range a.locations {
+		// Make sure that the file exists
+		// TODO should I delete this?
 		if !FileExists(location.Path) {
 			Warnf("Filepath error while importing %s. Skipping...\n", a.Name)
 			return false
 		}
+		// If it does, get the SHA (from backup or from current state if no backup / disabled)
 		location.Checksum, err = location.GetBackupSHA()
 	}
 	if err {
@@ -97,6 +113,7 @@ func (a *Service) Init() bool {
 	return true
 }
 
+// Initialize a file object
 func (a *ServiceObject) InitSO() bool {
 	var err bool
 	a.Checksum, err = a.GetBackupSHA()
@@ -107,22 +124,29 @@ func (a *ServiceObject) InitSO() bool {
 	return true
 }
 
+// Add a directory and all of its files & subfolders recursively
 func AddDir(path string, files []*ServiceObject) []*ServiceObject {
+	// Iterate through all items in the directory
 	items, _ := ioutil.ReadDir(path)
 	for _, item := range items {
+		// Get the path of the current item
 		subPath := ConcatenatePath(path, item.Name())
 		if item.IsDir() {
+			// Create a file object for the directory
 			newDir := &ServiceObject{
 				Name:  subPath,
 				Path:  subPath,
 				isDir: true,
 			}
+			// Make sure directory successfully inits first
 			if newDir.InitSO() {
 				newDir.InitBackup()
 				files = append(files, newDir)
+				// Recusively add all files and items in the subdirectory
 				files = append(files, AddDir(subPath, []*ServiceObject{})...)
 			}
 		} else {
+			// If the item is a file, just add it to the files array
 			newFile := &ServiceObject{
 				Name:  subPath,
 				Path:  subPath,
