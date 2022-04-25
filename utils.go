@@ -167,10 +167,10 @@ func removeService(slice []Service, s int) []Service {
 	isFreeing.Lock()
 	defer isFreeing.Unlock()
 	for _, name := range serviceNames {
+		slice[s].getAttr(name).FreeBackup()
 		slice[s].getAttr(name).Backup = nil
 		slice[s].getAttr(name).Path = ""
 		slice[s].getAttr(name).Checksum = ""
-		slice[s].getAttr(name).FreeBackup()
 	}
 	if s == len(slice) {
 		return slice[:s-1]
@@ -184,12 +184,12 @@ func removeSO(slice []ServiceObject, s int) []ServiceObject {
 	// Lock the mutex
 	isFreeing.Lock()
 	defer isFreeing.Unlock()
+	// Remove the backup file
+	slice[s].FreeBackup()
 	// Set all data to nil to free RAM
 	slice[s].Backup = nil
 	slice[s].Checksum = ""
 	slice[s].Checksum = ""
-	// Remove the backup file
-	slice[s].FreeBackup()
 	// Remove from the slice to trigger golang's garbgage detection
 	if s == len(slice) {
 		return slice[:s-1]
@@ -201,11 +201,11 @@ func removeDirectory(slice []Directory, s int) []Directory {
 	isFreeing.Lock()
 	defer isFreeing.Unlock()
 	for i := range slice[s].files {
+		slice[s].files[i].FreeBackup()
 		slice[s].files[i].Backup = nil
 		slice[s].files[i].Checksum = ""
 		slice[s].files[i].Checksum = ""
 		slice[s].files[i] = nil
-		slice[s].files[i].FreeBackup()
 	}
 	slice[s].files = nil
 	if s == len(slice) {
