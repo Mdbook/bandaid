@@ -13,6 +13,7 @@ import (
 	"strings"
 )
 
+// Colors object, to be used for printing colored output
 type Colors struct {
 	red     string
 	green   string
@@ -25,6 +26,7 @@ type Colors struct {
 	reset   string
 }
 
+// Windows cmd doesn't like colors, screw you windows
 func InitColors() Colors {
 	if runtime.GOOS == "windows" {
 		return Colors{
@@ -54,6 +56,8 @@ func InitColors() Colors {
 
 }
 
+// Add a filename to to a path
+// i.e. /foo + var = /foo/var
 func ConcatenatePath(root string, file string) string {
 	if root[len(root)-1:] == "/" {
 		return root + file
@@ -62,31 +66,34 @@ func ConcatenatePath(root string, file string) string {
 	}
 }
 
+// Copy a file
 func CopyFile(src, dst string) (int64, error) {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
 		return 0, err
 	}
-
+	// Check the file
 	if !sourceFileStat.Mode().IsRegular() {
 		return 0, fmt.Errorf("%s is not a regular file", src)
 	}
-
+	// Open the file
 	source, err := os.Open(src)
 	if err != nil {
 		return 0, err
 	}
 	defer source.Close()
-
+	// Create/open the destination file
 	destination, err := os.Create(dst)
 	if err != nil {
 		return 0, err
 	}
 	defer destination.Close()
+	// Copy the file
 	nBytes, err := io.Copy(destination, source)
 	return nBytes, err
 }
 
+// Get user input
 func GetInput() string {
 	reader := bufio.NewReader(os.Stdin)
 	rawAnswer, _ := reader.ReadString('\n')
@@ -94,6 +101,7 @@ func GetInput() string {
 	return answer
 }
 
+// Decrypt an array of bytes
 func decrypt(ciphertext, key []byte) []byte {
 	// Create the AES cipher
 	block, err := aes.NewCipher(key)
@@ -123,6 +131,7 @@ func decrypt(ciphertext, key []byte) []byte {
 	return ciphertext
 }
 
+// Encrypt an array of bytes
 func encrypt(plaintext, key []byte) []byte {
 	// Create the AES cipher
 	block, err := aes.NewCipher(key)
@@ -132,6 +141,7 @@ func encrypt(plaintext, key []byte) []byte {
 	// if len(plaintext) < aes.BlockSize {
 	// 	return plaintext
 	// }
+
 	// Empty array of 16 + plaintext length
 	// Include the IV at the beginning
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
@@ -152,6 +162,7 @@ func encrypt(plaintext, key []byte) []byte {
 	return ciphertext
 }
 
+// Completely remove a service
 func removeService(slice []Service, s int) []Service {
 	isFreeing.Lock()
 	defer isFreeing.Unlock()
@@ -167,13 +178,19 @@ func removeService(slice []Service, s int) []Service {
 		return append(slice[:s], slice[s+1:]...)
 	}
 }
+
+// Completely remove a file
 func removeSO(slice []ServiceObject, s int) []ServiceObject {
+	// Lock the mutex
 	isFreeing.Lock()
 	defer isFreeing.Unlock()
+	// Set all data to nil to free RAM
 	slice[s].Backup = nil
 	slice[s].Checksum = ""
 	slice[s].Checksum = ""
+	// Remove the backup file
 	slice[s].FreeBackup()
+	// Remove from the slice to trigger golang's garbgage detection
 	if s == len(slice) {
 		return slice[:s-1]
 	} else {
