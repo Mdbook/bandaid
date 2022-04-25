@@ -71,10 +71,7 @@ func (a *ServiceObject) CheckPerms() bool {
 // Check to see if file has been deleted or modified
 func (a *ServiceObject) CheckFile() bool {
 	if a.isDir {
-		if !FileExists(a.Path) {
-			return false
-		}
-		return true
+		return FileExists(a.Path)
 	}
 	// Get the SHA checksum of the file's current state
 	// and compare it to the one stored in memory
@@ -161,16 +158,20 @@ func AddDir(path string, files []*ServiceObject) []*ServiceObject {
 	return files
 }
 
+// Initialize a directory object
 func (a *Directory) InitDir() bool {
 	if FileExists(a.Path) {
+		// Create the ServiceObject for the top directory
 		topDir := &ServiceObject{
 			Name:  a.Path,
 			Path:  a.Path,
 			isDir: true,
 		}
+		// Make sure the top directory inits
 		if topDir.InitSO() {
 			topDir.InitBackup()
 		}
+		// Add all files recursively
 		a.files = AddDir(a.Path, []*ServiceObject{topDir})
 		return true
 	}
@@ -178,11 +179,18 @@ func (a *Directory) InitDir() bool {
 	return false
 }
 
+// Get the SHA-256 checksum for a file,
+// either from encrypted backup (if enabled)
+// or from the original file
 func (a *ServiceObject) GetBackupSHA() (string, bool) {
+	// Set local path variable
 	var path string = a.Path
+	// Grab the path for the backup folder
 	filename := GetConfigName(a.Path)
 	doEncrypt := false
+	// Check if the backup path exists
 	if FileExists(filename) && config.loadFromConfig {
+		// If it does, update the path and set to decrypt
 		path = filename
 		doEncrypt = true
 	}
@@ -192,26 +200,33 @@ func (a *ServiceObject) GetBackupSHA() (string, bool) {
 	}
 	defer f.Close()
 	read, err := ioutil.ReadAll(f)
+	if err != nil {
+		return "ERR", true
+	}
+	// If we're reading from a backup, decrypt it
 	if config.doEncryption && doEncrypt {
 		read = decrypt(read, config.key)
 	}
+	// Return the sha256 in string format
 	sha := sha256.Sum256(read)
 	ret := hex.EncodeToString(sha[:])
 	return ret, false
 }
 
+// Get the SHA256 checksum of a file object
 func (a *ServiceObject) GetSHA() (string, bool) {
 	f, err := os.Open(a.Path)
 	if err != nil {
 		return "ERR", true
 	}
 	defer f.Close()
-	read, err := ioutil.ReadAll(f)
+	read, _ := ioutil.ReadAll(f)
 	sha := sha256.Sum256(read)
 	ret := hex.EncodeToString(sha[:])
 	return ret, false
 }
 
+// Remove the backup file when freeing a file
 func (a *ServiceObject) FreeBackup() {
 	filename := GetConfigName(a.Path)
 	if FileExists(filename) {
@@ -219,19 +234,25 @@ func (a *ServiceObject) FreeBackup() {
 	}
 }
 
+// Initialize the backup for a file
 func (a *ServiceObject) InitBackup() {
+	// Get the file backup path
 	filename := GetConfigName(a.Path)
 	var path string = a.Path
 	doEncrypt := false
+	// Check to see if we're loading from a backup
 	if FileExists(filename) && config.loadFromConfig {
+		// If so, update the path
 		doEncrypt = true
 		path = filename
 	}
+	// Get permissions, owner, etc.
 	stat, _ := os.Stat(path)
 	inf := stat.Sys().(*syscall.Stat_t)
 	a.Owner = int(inf.Uid)
 	a.Group = int(inf.Gid)
 	a.Mode = stat.Mode()
+	// If the file isn't a directory, read and store the file's contents
 	if !a.isDir {
 		f, _ := os.Open(path)
 		a.Backup, _ = ioutil.ReadAll(f)
@@ -241,10 +262,12 @@ func (a *ServiceObject) InitBackup() {
 		defer f.Close()
 	}
 	if config.doBackup {
+		// Write
 		cnfPath := GetConfigName(a.Path)
 		if a.isDir {
 			cnfPath = cnfPath + "._."
 		} else if config.doEncryption {
+			// TODO here
 			writeFile(cnfPath, encrypt(a.Backup, config.key))
 		} else {
 			writeFile(cnfPath, a.Backup)
