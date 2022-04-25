@@ -164,14 +164,18 @@ func encrypt(plaintext, key []byte) []byte {
 
 // Completely remove a service
 func removeService(slice []Service, s int) []Service {
+	// Lock the mutex
 	isFreeing.Lock()
 	defer isFreeing.Unlock()
 	for _, name := range serviceNames {
+		// Remove the backup file
 		slice[s].getAttr(name).FreeBackup()
+		// Set all data to nil to free RAM
 		slice[s].getAttr(name).Backup = nil
 		slice[s].getAttr(name).Path = ""
 		slice[s].getAttr(name).Checksum = ""
 	}
+	// Remove from the slice to trigger golang's garbgage detection
 	if s == len(slice) {
 		return slice[:s-1]
 	} else {
@@ -197,9 +201,12 @@ func removeSO(slice []ServiceObject, s int) []ServiceObject {
 		return append(slice[:s], slice[s+1:]...)
 	}
 }
+
+// Remove a directory
 func removeDirectory(slice []Directory, s int) []Directory {
 	isFreeing.Lock()
 	defer isFreeing.Unlock()
+	// First free the backup for each file
 	for i := range slice[s].files {
 		slice[s].files[i].FreeBackup()
 		slice[s].files[i].Backup = nil
@@ -207,6 +214,7 @@ func removeDirectory(slice []Directory, s int) []Directory {
 		slice[s].files[i].Checksum = ""
 		slice[s].files[i] = nil
 	}
+	// then set the files object to nil
 	slice[s].files = nil
 	if s == len(slice) {
 		return slice[:s-1]
@@ -214,15 +222,21 @@ func removeDirectory(slice []Directory, s int) []Directory {
 		return append(slice[:s], slice[s+1:]...)
 	}
 }
+
+// Get the service, binary, or config file object from a Service object
 func (e *Service) getAttr(field string) *ServiceObject {
 	return e.locations[find(serviceNames, field)]
 }
 
+// Get the password
 func GetPass(str string) []byte {
+	// Reverse it to throw off red team
 	str = Reverse(str)
+	// Make sure it's exactly 16 characters long
 	if len(str) >= 16 {
 		str = str[:16]
 	} else {
+		// If not, add some padding
 		for {
 			str = "z" + str
 			if len(str) == 16 {
