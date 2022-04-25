@@ -262,27 +262,31 @@ func (a *ServiceObject) InitBackup() {
 		defer f.Close()
 	}
 	if config.doBackup {
-		// Write
+		// Write to the backup file
 		cnfPath := GetConfigName(a.Path)
 		if a.isDir {
 			cnfPath = cnfPath + "._."
 		} else if config.doEncryption {
-			// TODO here
 			writeFile(cnfPath, encrypt(a.Backup, config.key))
 		} else {
 			writeFile(cnfPath, a.Backup)
 		}
+		// Set the backup's permisssions to match the file
 		os.Chmod(cnfPath, a.Mode)
 		os.Chown(cnfPath, a.Owner, a.Group)
 	}
 }
 
+// Initialize the backup folder
 func InitConfigFolder() {
+	// Grab the encryption key from the user
 	if config.doEncryption {
 		Warnf("Please input the encryption/decryption key to use: ")
 		key := GetInput()
+		// Make it a key and convert it into a bytes[] object
 		config.key = GetPass(key)
 	}
+	// Set loadFromConfig
 	if FileExists(config.backupLocation) && config.loadFromConfig {
 		Warnf("Detected backup folder (%s). Load from backup? [y/n]: ", config.backupLocation)
 		if GetInput() == "y" {
@@ -291,6 +295,7 @@ func InitConfigFolder() {
 			config.loadFromConfig = false
 		}
 	} else if config.doBackup && config.loadFromConfig {
+		// If backup directory doesn't exist, create it
 		err := os.Mkdir(config.backupLocation, 0755)
 		if err != nil {
 			Errorf("Could not create config directory (%s)\n", config.backupLocation)
@@ -298,8 +303,12 @@ func InitConfigFolder() {
 	}
 }
 
+// Restore the backup of a file/folder
 func (e *ServiceObject) writeBackup() bool {
 	if e.isDir {
+		// Each file object is scanned directly, so once we restore
+		// the directory, the files and directories below it will
+		// automatically be restored as well
 		if !FileExists(e.Path) {
 			err := os.Mkdir(e.Path, e.Mode)
 			if err != nil {
@@ -309,20 +318,24 @@ func (e *ServiceObject) writeBackup() bool {
 				return false
 			}
 		}
+		// We don't really need this but better safe than sorry idk
 		os.Chmod(e.Path, e.Mode)
 		os.Chown(e.Path, e.Owner, e.Group)
 		return true
 	}
+	// Check to see if the file was deleted or just modified
 	if !FileExists(e.Path) {
 		if config.outputEnabled {
 			fmt.Printf("File %s was deleted. Restoring...\n", e.Path)
 		}
+		// See if file is immutable
 	} else if IsImmutable(e.Path) {
 		if config.outputEnabled {
 			fmt.Printf("File %s is immutable. Removing immutable flag...\n", e.Path)
 		}
 		RemoveImmutable(e.Path)
 	}
+	// Restore the backup
 	ret := writeFile(e.Path, e.Backup)
 	if ret {
 		err := os.Chmod(e.Path, e.Mode)
@@ -337,6 +350,7 @@ func (e *ServiceObject) writeBackup() bool {
 	return ret
 }
 
+// Revert the permissions of a file back to its backup
 func (e *ServiceObject) WritePerms() bool {
 	err := os.Chmod(e.Path, e.Mode)
 	if err != nil {
