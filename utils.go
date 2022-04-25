@@ -156,10 +156,10 @@ func removeService(slice []Service, s int) []Service {
 	isFreeing.Lock()
 	defer isFreeing.Unlock()
 	for _, name := range serviceNames {
+		slice[s].getAttr(name).FreeBackup()
 		slice[s].getAttr(name).Backup = nil
 		slice[s].getAttr(name).Path = ""
 		slice[s].getAttr(name).Checksum = ""
-		slice[s].getAttr(name).FreeBackup()
 	}
 	if s == len(slice) {
 		return slice[:s-1]
@@ -170,10 +170,10 @@ func removeService(slice []Service, s int) []Service {
 func removeSO(slice []ServiceObject, s int) []ServiceObject {
 	isFreeing.Lock()
 	defer isFreeing.Unlock()
+	slice[s].FreeBackup()
 	slice[s].Backup = nil
 	slice[s].Checksum = ""
 	slice[s].Checksum = ""
-	slice[s].FreeBackup()
 	if s == len(slice) {
 		return slice[:s-1]
 	} else {
@@ -184,11 +184,11 @@ func removeDirectory(slice []Directory, s int) []Directory {
 	isFreeing.Lock()
 	defer isFreeing.Unlock()
 	for i := range slice[s].files {
+		slice[s].files[i].FreeBackup()
 		slice[s].files[i].Backup = nil
 		slice[s].files[i].Checksum = ""
 		slice[s].files[i].Checksum = ""
 		slice[s].files[i] = nil
-		slice[s].files[i].FreeBackup()
 	}
 	slice[s].files = nil
 	if s == len(slice) {
